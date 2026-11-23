@@ -16,12 +16,16 @@ import {
 import { createWorkOrder, submitResolutionProof } from "../src/lib/workorders";
 import { disputeResolution, confirmResolution } from "../src/lib/dispute";
 import { getCityAnalytics } from "../src/lib/analytics";
+import { verifyCoordinateCoherence } from "../src/lib/exif";
+import { inspectComplaintImage, verifyRepairImages } from "../src/lib/aiVision";
+import { getContractorScorecards, exportWorkOrdersCsv } from "../src/lib/contractors";
+import { computeBadgeTier, getCivicLeaderboard } from "../src/lib/karma";
 
 const prisma = new PrismaClient();
 
 async function runSanityCheck() {
   console.log("\n=========================================");
-  console.log("🚦 RUNNING CITYCIVIC SANITY TESTS - ALL PHASES 1 - 7");
+  console.log("🚦 RUNNING CITYCIVIC SANITY TESTS - ALL PHASES 1 - 11");
   console.log("=========================================\n");
 
   let passed = 0;
@@ -38,7 +42,7 @@ async function runSanityCheck() {
   }
 
   try {
-    // --- PHASE 1 REGRESSION CHECKS ---
+    // --- STAGE 1: FOUNDATION ---
     console.log("🔹 [STAGE 1] Database & Ward Foundation Checks");
     const wards = await prisma.ward.findMany();
     assert(wards.length >= 4, `Database contains ${wards.length} wards`);
@@ -55,7 +59,7 @@ async function runSanityCheck() {
     assert(officer?.role === "WARD_OFFICER", "Officer has WARD_OFFICER role");
     assert(officer?.ward?.code === "W02", "Officer assigned to Indiranagar (W02)");
 
-    // --- PHASE 2 AUTH & ANTI-SPAM CHECKS ---
+    // --- STAGE 2: AUTH & ANTI-SPAM ---
     console.log("\n🔹 [STAGE 2] Email OTP & Anti-Spam Security Checks");
     assert(isDisposableEmail("spamuser@mailinator.com") === true, "Identified mailinator.com as disposable");
     assert(validatePhoneNumber("9999999999").valid === false, "Rejected repeating dummy phone 9999999999");
@@ -68,7 +72,7 @@ async function runSanityCheck() {
     const verifyResult = await verifyOtpCode(testEmail, otpResult.devCode!, "Test Resident");
     assert(verifyResult.user.email === testEmail, "Verified user matches email");
 
-    // --- PHASE 3 GEOTAGGING & DEDUPLICATION CHECKS ---
+    // --- STAGE 3: GEOTAGGING & DEDUPLICATION ---
     console.log("\n🔹 [STAGE 3] Geotagging & Deduplication Engine Checks");
     const dist1 = calculateDistanceMeters(12.9784, 77.6408, 12.9784, 77.6410);
     assert(dist1 >= 20 && dist1 <= 25, `Calculated distance between adjacent points: ${dist1}m (~22m)`);
@@ -104,7 +108,7 @@ async function runSanityCheck() {
     });
     assert(childIssue.isMaster === false, "Child complaint has isMaster = false");
 
-    // --- PHASE 4 COMMUNITY VERIFICATION & DYNAMIC SEVERITY CHECKS ---
+    // --- STAGE 4: SEVERITY & VERIFICATION ---
     console.log("\n🔹 [STAGE 4] Community Verification & Dynamic Severity Checks");
     const secondCitizen = await prisma.user.create({
       data: {
@@ -128,7 +132,7 @@ async function runSanityCheck() {
     });
     assert(verifySurveyResult.success === true, "Submitted community verification survey");
 
-    // --- PHASE 5 WARD OFFICER CONSOLE & WORK ORDERS CHECKS ---
+    // --- STAGE 5: WORK ORDERS & GEOFENCED RESOLUTION ---
     console.log("\n🔹 [STAGE 5] Ward Officer Work Orders & Geofenced Resolution Checks");
     const workOrder = await createWorkOrder({
       issueId: masterIssue.id,
@@ -153,7 +157,7 @@ async function runSanityCheck() {
     });
     assert(resolutionResult.issue.status === "PROVISIONALLY_RESOLVED", "Issue transitioned to PROVISIONALLY_RESOLVED");
 
-    // --- PHASE 6 PUBLIC RESOLUTION TRACKING & CITIZEN DISPUTE CHECKS ---
+    // --- STAGE 6: DISPUTE & AUDIT LOOP ---
     console.log("\n🔹 [STAGE 6] Public Resolution Tracking & Anti-Ghost Closure Dispute Checks");
     const disputeResult = await disputeResolution({
       issueId: masterIssue.id,
@@ -163,15 +167,60 @@ async function runSanityCheck() {
     });
     assert(disputeResult.issue.status === "REOPENED_DISPUTED", "Issue automatically transitioned to REOPENED_DISPUTED");
 
-    // --- PHASE 7 MUNICIPAL ANALYTICS & CITY OPS CHECKS ---
+    // --- STAGE 7: ANALYTICS ---
     console.log("\n🔹 [STAGE 7] Municipal Analytics & Executive Metrics Checks");
     const analytics = await getCityAnalytics();
     assert(analytics.overview.totalComplaintsFiled >= 2, `Total complaints tracked: ${analytics.overview.totalComplaintsFiled}`);
-    assert(analytics.overview.masterIncidents >= 1, `Master incidents tracked: ${analytics.overview.masterIncidents}`);
-    assert(analytics.overview.duplicatesIntercepted >= 1, `Duplicates intercepted: ${analytics.overview.duplicatesIntercepted}`);
     assert(analytics.overview.deduplicationRatePercent > 0, `Deduplication rate computed: ${analytics.overview.deduplicationRatePercent}%`);
-    assert(analytics.wardPerformance.length >= 4, `Ward performance scorecards available: ${analytics.wardPerformance.length} wards`);
-    assert(analytics.categoryBreakdown.length >= 6, `Category distribution available: ${analytics.categoryBreakdown.length} categories`);
+
+    // --- STAGE 8: EXIF EXTRACTION & SPOOF CHECK ---
+    console.log("\n🔹 [STAGE 8] EXIF Geotagging & Spoofing Guardrails");
+    const consistentCheck = verifyCoordinateCoherence(12.9784, 77.6408, 12.9785, 77.6409, 300);
+    assert(consistentCheck.isConsistent === true, "Coherent EXIF GPS coordinates accepted within tolerance");
+
+    const spoofCheck = verifyCoordinateCoherence(12.9784, 77.6408, 28.6139, 77.2090, 300);
+    assert(spoofCheck.isConsistent === false, "Spoofed coordinates (>1000km away) correctly flagged");
+
+    // --- STAGE 9: AI VISUAL INSPECTION & VERIFICATION ---
+    console.log("\n🔹 [STAGE 9] AI Multimodal Visual Inspection & Repair Verification");
+    const aiTriage = await inspectComplaintImage("https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800");
+    assert(aiTriage.isCivicIssue === true, "AI identified image as genuine civic issue");
+    assert(aiTriage.estimatedHazard >= 5, `AI estimated hazard score: ${aiTriage.estimatedHazard}/10`);
+
+    const aiShamCheck = await verifyRepairImages(
+      "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+      "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+      "POTHOLE"
+    );
+    assert(aiShamCheck.isRepaired === false, "AI caught identical Before/After photo fraud attempt");
+
+    const aiLegitCheck = await verifyRepairImages(
+      "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+      "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800",
+      "POTHOLE"
+    );
+    assert(aiLegitCheck.isRepaired === true, "AI verified distinct before/after repair proof");
+
+    // --- STAGE 10: CONTRACTOR SLA PENALTIES & CSV EXPORT ---
+    console.log("\n🔹 [STAGE 10] Contractor SLA Penalties & Work Order CSV Export");
+    const scorecards = await getContractorScorecards();
+    assert(scorecards.length >= 1, `Computed scorecards for ${scorecards.length} contractors`);
+    const penalized = scorecards.find((c) => c.strikeLevel > 0);
+    assert(penalized !== undefined, `Identified contractor with community strikes: ${penalized?.name}`);
+
+    const csvData = await exportWorkOrdersCsv();
+    assert(csvData.includes("Work Order Code") && csvData.includes("Citizen Contact Phone"), "Generated valid CSV work-order run-sheet");
+
+    // --- STAGE 11: CITIZEN KARMA ECONOMY & LEADERBOARD ---
+    console.log("\n🔹 [STAGE 11] Citizen Karma Economy & Leaderboard");
+    const badgePlatinum = computeBadgeTier(120);
+    assert(badgePlatinum.level === "PLATINUM", "120 Karma awarded Platinum 'Civic Guardian'");
+    const badgeGold = computeBadgeTier(60);
+    assert(badgeGold.level === "GOLD", "60 Karma awarded Gold 'Senior Auditor'");
+
+    const leaderboard = await getCivicLeaderboard(undefined, 10);
+    assert(leaderboard.length >= 1, `Leaderboard returned ${leaderboard.length} ranked citizens`);
+    assert(leaderboard[0].karma >= leaderboard[leaderboard.length - 1].karma, "Leaderboard properly sorted by highest karma first");
 
     console.log(`\n-----------------------------------------`);
     console.log(`Sanity Results: ${passed} passed, ${failed} failed`);

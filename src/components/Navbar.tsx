@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Briefcase,
   BarChart3,
+  Award,
   UserCheck,
   Shield,
   Sparkles,
@@ -25,6 +26,7 @@ export function Navbar() {
     { href: "/report", label: "Report Issue", icon: AlertTriangle },
     { href: "/officer", label: "Ward Console", icon: Briefcase },
     { href: "/admin", label: "City Analytics", icon: BarChart3 },
+    { href: "/leaderboard", label: "Leaderboard", icon: Award },
   ];
 
   return (

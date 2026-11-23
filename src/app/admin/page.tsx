@@ -21,15 +21,17 @@ export default function AdminAnalyticsPage() {
   const { user, switchPersona } = useAuth();
   const [data, setData] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
+  const [contractors, setContractors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadStats() {
       try {
         setLoading(true);
-        const [statsRes, logsRes] = await Promise.all([
+        const [statsRes, logsRes, contRes] = await Promise.all([
           fetch("/api/admin/analytics"),
           fetch("/api/public/audit-ledger?limit=15"),
+          fetch("/api/contractors"),
         ]);
 
         if (statsRes.ok) {
@@ -39,6 +41,10 @@ export default function AdminAnalyticsPage() {
         if (logsRes.ok) {
           const l = await logsRes.json();
           setLogs(l.logs || []);
+        }
+        if (contRes.ok) {
+          const c = await contRes.json();
+          setContractors(c.scorecards || []);
         }
       } finally {
         setLoading(false);
@@ -229,6 +235,82 @@ export default function AdminAnalyticsPage() {
                     >
                       {w.resolutionRate}%
                     </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Contractor SLA Penalties & Liquidated Damages */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-red-600" />
+              Contractor SLA Enforcement & Community Dispute Penalties
+            </h2>
+            <p className="text-xs text-slate-500">
+              Contractors penalized for substandard repairs disputed and reopened by local residents.
+            </p>
+          </div>
+          <span className="text-xs bg-red-50 text-red-700 font-bold px-3 py-1 rounded-xl border border-red-200">
+            Anti-Ghost Closure Safeguard
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-600">
+            <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th className="py-3.5 px-5">Contractor Agency</th>
+                <th className="py-3.5 px-5">Total Repairs</th>
+                <th className="py-3.5 px-5">Dispute Strikes</th>
+                <th className="py-3.5 px-5">Pass Rate</th>
+                <th className="py-3.5 px-5">Legal SLA Penalty Status</th>
+                <th className="py-3.5 px-5 text-right">Liquidated Damages</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {contractors.map((c: any) => (
+                <tr key={c.name} className="hover:bg-slate-50/70 transition">
+                  <td className="py-3.5 px-5 font-bold text-slate-900">{c.name}</td>
+                  <td className="py-3.5 px-5">{c.totalRepairs}</td>
+                  <td className="py-3.5 px-5">
+                    {c.strikeLevel > 0 ? (
+                      <span className="text-red-700 font-bold bg-red-100 px-2 py-0.5 rounded">
+                        {c.strikeLevel} Community Strikes
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded">
+                        0 Strikes
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3.5 px-5 font-semibold text-slate-700">{c.passRatePercent}%</td>
+                  <td className="py-3.5 px-5">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                        c.status === "BLACKLIST_RECOMMENDED"
+                          ? "bg-red-600 text-white"
+                          : c.status === "PROBATION"
+                          ? "bg-amber-100 text-amber-800"
+                          : c.status === "WATCHLIST"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-emerald-100 text-emerald-800"
+                      }`}
+                    >
+                      {c.status.replace("_", " ")}
+                    </span>
+                    <p className="text-[10px] text-slate-500 mt-1 max-w-xs">{c.penaltyClause}</p>
+                  </td>
+                  <td className="py-3.5 px-5 text-right font-extrabold text-slate-900">
+                    {c.recommendedPenaltyAmount > 0 ? (
+                      <span className="text-red-600">₹{c.recommendedPenaltyAmount.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-slate-400">₹0</span>
+                    )}
                   </td>
                 </tr>
               ))}

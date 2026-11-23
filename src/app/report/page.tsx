@@ -31,6 +31,83 @@ export default function ReportIssuePage() {
     "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800"
   );
   const [customPhotoInput, setCustomPhotoInput] = useState("");
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [exifInfo, setExifInfo] = useState<any>(null);
+  const [aiTriageLoading, setAiTriageLoading] = useState(false);
+  const [aiTriageResult, setAiTriageResult] = useState<any>(null);
+
+  // Trigger AI Visual Inspection & Triage
+  const handleAiTriage = async () => {
+    const currentImg = customPhotoInput || photoUrl;
+    if (!currentImg) return;
+
+    setAiTriageLoading(true);
+    try {
+      const res = await fetch("/api/ai/inspect-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photoUrl: currentImg,
+          reportedCategory: categoryCode,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAiTriageResult(data);
+        if (data.predictedCategory) {
+          setCategoryCode(data.predictedCategory);
+        }
+        if (data.hazardAnalysis && !description) {
+          setDescription(data.hazardAnalysis);
+        }
+      }
+    } catch {
+      // Graceful fallback
+    } finally {
+      setAiTriageLoading(false);
+    }
+  };
+
+  // Handle direct file upload with EXIF extraction
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFile(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "File upload failed.");
+      }
+
+      setCustomPhotoInput(data.url);
+      setExifInfo(data.exif);
+
+      // If EXIF GPS coordinates exist, auto-populate the coordinates
+      if (data.exif?.hasGps && data.exif.latitude && data.exif.longitude) {
+        setLatitude(parseFloat(data.exif.latitude.toFixed(6)));
+        setLongitude(parseFloat(data.exif.longitude.toFixed(6)));
+        setAddress(
+          `GPS extracted from photo EXIF: (${data.exif.latitude.toFixed(4)}, ${data.exif.longitude.toFixed(4)})`
+        );
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   // Deduplication state
   const [duplicateCandidates, setDuplicateCandidates] = useState<any[]>([]);
@@ -361,10 +438,10 @@ export default function ReportIssuePage() {
           </div>
         </div>
 
-        {/* Photo Evidence */}
+        {/* Photo Evidence & EXIF Extraction */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-            5. Incident Photo Evidence
+            5. Incident Photo Evidence & Geotag
           </label>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="w-full sm:w-48 aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
@@ -375,10 +452,71 @@ export default function ReportIssuePage() {
               />
             </div>
 
-            <div className="flex-1 w-full space-y-2">
-              <span className="text-xs text-slate-600 block">
-                Provide photo URL or choose sample image:
-              </span>
+            <div className="flex-1 w-full space-y-2.5">
+              {/* Direct File Upload & AI Triage buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition">
+                  <Camera className="w-4 h-4" />
+                  <span>{uploadingFile ? "Analyzing EXIF..." : "Upload Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleAiTriage}
+                  disabled={aiTriageLoading}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{aiTriageLoading ? "AI Analyzing..." : "AI Auto-Triage Hazard"}</span>
+                </button>
+              </div>
+
+              {aiTriageResult && (
+                <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl text-xs text-indigo-950">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      AI Visual Triage Result:
+                    </span>
+                    <span className="font-semibold text-indigo-800">
+                      Hazard: {aiTriageResult.estimatedHazard}/10 (Confidence: {(aiTriageResult.confidence * 100).toFixed(0)}%)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-indigo-900">{aiTriageResult.hazardAnalysis}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {aiTriageResult.recommendedTags?.map((tag: string) => (
+                      <span key={tag} className="text-[10px] bg-white text-indigo-800 px-1.5 py-0.5 rounded border border-indigo-200 font-mono">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {exifInfo && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">EXIF Metadata Verified:</span>
+                    {exifInfo.hasGps ? (
+                      <p className="text-[11px] text-emerald-700">
+                        GPS coords ({exifInfo.latitude?.toFixed(4)}, {exifInfo.longitude?.toFixed(4)}) auto-applied! Camera: {exifInfo.model || "Mobile Device"}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-emerald-700">
+                        Camera capture verified ({exifInfo.model || "Device"}). No GPS tags embedded, using manual/device coordinates.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <input
                 type="url"
                 placeholder="https://... or paste image URL"
