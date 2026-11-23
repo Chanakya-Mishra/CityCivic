@@ -1,0 +1,198 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  phone        String
+  name         String?
+  role         String        @default("CITIZEN") // CITIZEN, WARD_OFFICER, ADMIN
+  wardId       String?
+  karma        Int           @default(10)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  ward         Ward?         @relation(fields: [wardId], references: [id])
+  issues       Issue[]       @relation("ReportedIssues")
+  upvotes      Upvote[]
+  verifications Verification[]
+  disputes     Dispute[]
+  resolutionProofs ResolutionProof[]
+  workOrders   WorkOrder[]   @relation("AssignedOfficer")
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  phone     String?
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Ward {
+  id              String      @id @default(cuid())
+  name            String
+  code            String      @unique
+  officerName     String?
+  officerContact  String?
+  centerLat       Float
+  centerLng       Float
+  radiusMeters    Float       @default(2000)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  users           User[]
+  issues          Issue[]
+  workOrders      WorkOrder[]
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  department  String
+  baseHazard  Int      @default(5) // Scale 1 to 10
+  icon        String?
+  createdAt   DateTime @default(now())
+
+  issues      Issue[]
+}
+
+model Issue {
+  id                    String        @id @default(cuid())
+  trackingCode          String        @unique
+  title                 String
+  description           String
+  categoryCode          String
+  status                String        @default("OPEN") // OPEN, TRIAGED, IN_PROGRESS, PROVISIONALLY_RESOLVED, OFFICIALLY_RESOLVED, REOPENED_DISPUTED
+  latitude              Float
+  longitude             Float
+  address               String?
+  photoUrl              String
+  isMaster              Boolean       @default(true)
+  masterIssueId         String?
+  wardId                String?
+  reportedById          String
+  
+  // Dynamic Priority and Community Metrics
+  dynamicSeverity       Float         @default(5.0)
+  severityLevel         String        @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  upvoteCount           Int           @default(1)
+  disputeCount          Int           @default(0)
+  
+  // Resolution & Audit Timestamps
+  provisionalResolvedAt DateTime?
+  disputeDeadline       DateTime?
+  officiallyResolvedAt  DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  category              Category      @relation(fields: [categoryCode], references: [code])
+  ward                  Ward?         @relation(fields: [wardId], references: [id])
+  reportedBy            User          @relation("ReportedIssues", fields: [reportedById], references: [id])
+  masterIssue           Issue?        @relation("DuplicateGrouping", fields: [masterIssueId], references: [id])
+  childIssues           Issue[]       @relation("DuplicateGrouping")
+  upvotes               Upvote[]
+  verifications         Verification[]
+  resolutionProof       ResolutionProof?
+  disputes              Dispute[]
+  workOrders            WorkOrder[]
+  auditLogs             AuditLog[]
+}
+
+model Upvote {
+  id        String   @id @default(cuid())
+  issueId   String
+  userId    String
+  userLat   Float?
+  userLng   Float?
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issueId, userId])
+}
+
+model Verification {
+  id               String   @id @default(cuid())
+  issueId          String
+  userId           String
+  isStillPresent   Boolean
+  hazardPerception String   @default("MODERATE") // MILD, MODERATE, SEVERE
+  userLat          Float?
+  userLng          Float?
+  comment          String?
+  createdAt        DateTime @default(now())
+
+  issue            Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ResolutionProof {
+  id                        String   @id @default(cuid())
+  issueId                   String   @unique
+  officerId                 String
+  afterPhotoUrl             String
+  resolutionLat             Float
+  resolutionLng             Float
+  distanceFromOriginMeters  Float
+  notes                     String
+  contractorName            String?
+  resolvedAt                DateTime @default(now())
+
+  issue                     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  officer                   User     @relation(fields: [officerId], references: [id])
+}
+
+model Dispute {
+  id                String   @id @default(cuid())
+  issueId           String
+  userId            String
+  reason            String
+  evidencePhotoUrl  String?
+  createdAt         DateTime @default(now())
+
+  issue             Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WorkOrder {
+  id                 String    @id @default(cuid())
+  workOrderCode      String    @unique
+  issueId            String
+  wardId             String
+  assignedOfficerId  String?
+  department         String
+  priority           String    @default("NORMAL") // NORMAL, HIGH, EMERGENCY
+  status             String    @default("ASSIGNED") // ASSIGNED, DISPATCHED, IN_REPAIR, COMPLETED
+  scheduledDate      DateTime?
+  completedDate      DateTime?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  issue              Issue     @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  ward               Ward      @relation(fields: [wardId], references: [id])
+  assignedOfficer    User?     @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  issueId   String
+  action    String
+  actorId   String?
+  actorRole String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+}

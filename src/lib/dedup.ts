@@ -1,0 +1,204 @@
+import prisma from "./prisma";
+import { calculateDistanceMeters, findMatchingWard } from "./geo";
+
+export interface DuplicateCandidate {
+  id: string;
+  trackingCode: string;
+  title: string;
+  description: string;
+  categoryCode: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  photoUrl: string;
+  distanceMeters: number;
+  upvoteCount: number;
+  similarityScore: number; // 0 - 100
+  isMaster: boolean;
+  createdAt: Date;
+}
+
+/**
+ * Searches for active civic complaints in proximity to intercept duplicate submissions
+ */
+export async function findDuplicateCandidates(
+  lat: number,
+  lng: number,
+  categoryCode?: string,
+  radiusMeters: number = 60
+): Promise<DuplicateCandidate[]> {
+  // Query all active issues that are master tickets or standalone
+  const activeIssues = await prisma.issue.findMany({
+    where: {
+      status: { in: ["OPEN", "TRIAGED", "IN_PROGRESS", "REOPENED_DISPUTED"] },
+      isMaster: true,
+    },
+    include: {
+      category: true,
+      _count: { select: { childIssues: true, upvotes: true } },
+    },
+  });
+
+  const candidates: DuplicateCandidate[] = [];
+
+  for (const issue of activeIssues) {
+    const dist = calculateDistanceMeters(lat, lng, issue.latitude, issue.longitude);
+
+    if (dist <= radiusMeters) {
+      let score = 0;
+
+      // 1. Proximity score (0 to 40 pts)
+      const proximityFraction = Math.max(0, (radiusMeters - dist) / radiusMeters);
+      score += Math.round(proximityFraction * 40);
+
+      // 2. Category match (0 or 40 pts)
+      if (categoryCode && issue.categoryCode === categoryCode) {
+        score += 40;
+      } else if (!categoryCode) {
+        score += 20;
+      }
+
+      // 3. Time recency bonus (0 to 20 pts)
+      const ageHours = (Date.now() - new Date(issue.createdAt).getTime()) / (1000 * 60 * 60);
+      if (ageHours < 24) {
+        score += 20;
+      } else if (ageHours < 72) {
+        score += 10;
+      }
+
+      candidates.push({
+        id: issue.id,
+        trackingCode: issue.trackingCode,
+        title: issue.title,
+        description: issue.description,
+        categoryCode: issue.categoryCode,
+        status: issue.status,
+        latitude: issue.latitude,
+        longitude: issue.longitude,
+        photoUrl: issue.photoUrl,
+        distanceMeters: dist,
+        upvoteCount: issue.upvoteCount,
+        similarityScore: Math.min(100, score),
+        isMaster: issue.isMaster,
+        createdAt: issue.createdAt,
+      });
+    }
+  }
+
+  // Sort by highest similarity score first, then closest distance
+  candidates.sort((a, b) => b.similarityScore - a.similarityScore || a.distanceMeters - b.distanceMeters);
+
+  return candidates;
+}
+
+export function generateTrackingCode(): string {
+  const year = new Date().getFullYear();
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `CC-${year}-${rand}`;
+}
+
+export interface CreateIssueInput {
+  title: string;
+  description: string;
+  categoryCode: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  photoUrl: string;
+  reportedById: string;
+  linkedMasterId?: string | null;
+}
+
+export async function createCivicIssue(input: CreateIssueInput) {
+  // 1. Find assigned ward
+  const wards = await prisma.ward.findMany();
+  const matchingWard = findMatchingWard(input.latitude, input.longitude, wards);
+
+  // 2. Fetch category to read base hazard
+  const category = await prisma.category.findUnique({
+    where: { code: input.categoryCode },
+  });
+
+  const baseHazard = category?.baseHazard || 5;
+  const isMaster = !input.linkedMasterId;
+
+  // 3. Create unique tracking code
+  let trackingCode = generateTrackingCode();
+  let existing = await prisma.issue.findUnique({ where: { trackingCode } });
+  while (existing) {
+    trackingCode = generateTrackingCode();
+    existing = await prisma.issue.findUnique({ where: { trackingCode } });
+  }
+
+  // 4. Create Issue in DB
+  const issue = await prisma.issue.create({
+    data: {
+      trackingCode,
+      title: input.title,
+      description: input.description,
+      categoryCode: input.categoryCode,
+      status: "OPEN",
+      latitude: input.latitude,
+      longitude: input.longitude,
+      address: input.address,
+      photoUrl: input.photoUrl,
+      isMaster,
+      masterIssueId: input.linkedMasterId || null,
+      wardId: matchingWard?.id || null,
+      reportedById: input.reportedById,
+      dynamicSeverity: baseHazard,
+      severityLevel: baseHazard >= 8 ? "CRITICAL" : baseHazard >= 6 ? "HIGH" : baseHazard >= 4 ? "MEDIUM" : "LOW",
+      upvoteCount: 1,
+    },
+    include: {
+      category: true,
+      ward: true,
+      reportedBy: { select: { id: true, name: true, email: true, phone: true } },
+    },
+  });
+
+  // Automatically register creator's upvote
+  await prisma.upvote.create({
+    data: {
+      issueId: issue.id,
+      userId: input.reportedById,
+      userLat: input.latitude,
+      userLng: input.longitude,
+    },
+  });
+
+  // Log Audit
+  await prisma.auditLog.create({
+    data: {
+      issueId: issue.id,
+      action: isMaster ? "MASTER_ISSUE_REPORTED" : "GROUPED_AS_CHILD_COMPLAINT",
+      actorId: input.reportedById,
+      actorRole: "CITIZEN",
+      details: isMaster
+        ? `New incident reported at (${input.latitude.toFixed(5)}, ${input.longitude.toFixed(5)}) in ${matchingWard?.name || "Unassigned"}`
+        : `Grouped under master issue ${input.linkedMasterId}`,
+    },
+  });
+
+  // If this is a child ticket, increment master ticket upvote count and recalculate
+  if (input.linkedMasterId) {
+    await prisma.issue.update({
+      where: { id: input.linkedMasterId },
+      data: {
+        upvoteCount: { increment: 1 },
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        issueId: input.linkedMasterId,
+        action: "CHILD_REPORT_ATTACHED",
+        actorId: input.reportedById,
+        actorRole: "CITIZEN",
+        details: `Corroborating child complaint ${trackingCode} attached by citizen.`,
+      },
+    });
+  }
+
+  return issue;
+}
