@@ -79,6 +79,13 @@ export default function HomePage() {
       return;
     }
 
+    // 1. Instant optimistic UI update (0ms perceived latency)
+    setMarkers((prev) =>
+      prev.map((m) =>
+        m.id === issueId ? { ...m, upvoteCount: (m.upvoteCount || 0) + 1 } : m
+      )
+    );
+
     try {
       const res = await fetch(`/api/issues/${issueId}/upvote`, {
         method: "POST",
@@ -86,14 +93,23 @@ export default function HomePage() {
         body: JSON.stringify({}),
       });
 
-      if (res.ok) {
-        // Refresh local markers state
-        fetchData();
-      } else {
+      if (!res.ok) {
+        // Rollback on failure
+        setMarkers((prev) =>
+          prev.map((m) =>
+            m.id === issueId ? { ...m, upvoteCount: Math.max(0, (m.upvoteCount || 1) - 1) } : m
+          )
+        );
         const err = await res.json();
         alert(err.error || "Failed to upvote");
       }
     } catch {
+      // Rollback on network failure
+      setMarkers((prev) =>
+        prev.map((m) =>
+          m.id === issueId ? { ...m, upvoteCount: Math.max(0, (m.upvoteCount || 1) - 1) } : m
+        )
+      );
       alert("Network error while registering upvote.");
     }
   };
@@ -139,18 +155,6 @@ export default function HomePage() {
             >
               Ward Officer Work Orders
             </Link>
-          </div>
-        </div>
-
-        {/* Decorative civic stat badges */}
-        <div className="hidden md:flex absolute right-8 top-8 bottom-8 flex-col justify-center gap-3 w-64 text-xs">
-          <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10">
-            <span className="text-slate-400 block text-[10px] font-semibold uppercase">Active Complaints</span>
-            <span className="text-xl font-extrabold text-white">{markers.length} Master Incidents</span>
-          </div>
-          <div className="bg-white/10 backdrop-blur-md p-3 rounded-xl border border-white/10">
-            <span className="text-slate-400 block text-[10px] font-semibold uppercase">Anti-Spam Verification</span>
-            <span className="text-sm font-bold text-emerald-400">Zero Cost Email OTP + Phone on Record</span>
           </div>
         </div>
       </div>
@@ -365,6 +369,8 @@ export default function HomePage() {
                       <img
                         src={issue.photoUrl}
                         alt="Initial Complaint"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       <span className="absolute bottom-1 left-1 bg-black/60 backdrop-blur-sm text-white text-[9px] px-1.5 py-0.5 rounded font-medium">
@@ -377,6 +383,8 @@ export default function HomePage() {
                         <img
                           src={issue.afterPhotoUrl}
                           alt="Resolution Proof"
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover"
                         />
                         <span className="absolute bottom-1 left-1 bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">

@@ -70,19 +70,31 @@ export default function IssueDetailPage({
       openAuthModal();
       return;
     }
+
+    // Instant optimistic update
+    setIssue((prev: any) =>
+      prev ? { ...prev, upvoteCount: (prev.upvoteCount || 0) + 1 } : prev
+    );
+
     try {
       const res = await fetch(`/api/issues/${issue.id}/upvote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (res.ok) {
-        fetchIssue();
-      } else {
+      if (!res.ok) {
+        // Rollback on failure
+        setIssue((prev: any) =>
+          prev ? { ...prev, upvoteCount: Math.max(0, (prev.upvoteCount || 1) - 1) } : prev
+        );
         const d = await res.json();
         alert(d.error || "Failed to upvote");
       }
     } catch {
+      // Rollback on network error
+      setIssue((prev: any) =>
+        prev ? { ...prev, upvoteCount: Math.max(0, (prev.upvoteCount || 1) - 1) } : prev
+      );
       alert("Error upvoting issue.");
     }
   };
@@ -388,6 +400,8 @@ export default function IssueDetailPage({
               <img
                 src={issue.photoUrl}
                 alt="Original Complaint"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -413,6 +427,8 @@ export default function IssueDetailPage({
                   <img
                     src={issue.resolutionProof.afterPhotoUrl}
                     alt="Resolution Proof"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </div>
