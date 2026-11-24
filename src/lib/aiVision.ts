@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export interface ImageTriageResult {
   isCivicIssue: boolean;
   predictedCategory: string;
@@ -16,6 +19,27 @@ export interface RepairVerificationResult {
   anomaliesDetected: string[];
 }
 
+function getGeminiImagePart(photoUrl: string): any {
+  // If it's a local uploaded file (e.g., /uploads/12345.jpg)
+  if (photoUrl.startsWith("/uploads/")) {
+    const localPath = path.join(process.cwd(), "public", photoUrl);
+    if (fs.existsSync(localPath)) {
+      const buffer = fs.readFileSync(localPath);
+      const ext = path.extname(localPath).toLowerCase().replace(".", "");
+      const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      return {
+        inline_data: {
+          mime_type: mimeType,
+          data: buffer.toString("base64"),
+        },
+      };
+    }
+  }
+
+  // Fallback to text reference or web URL
+  return { text: `Image Source: ${photoUrl}` };
+}
+
 /**
  * AI Inspection of Citizen Reported Complaint Image
  */
@@ -27,13 +51,14 @@ export async function inspectComplaintImage(
 
   if (apiKey) {
     try {
-      // Direct REST call to Gemini 1.5 Flash / 2.0 Flash
       const prompt = `Analyze this civic complaint photo. Determine:
 1. Is this a genuine outdoor urban civic issue (pothole, garbage dump, manhole, water leak, broken streetlight, sewage)?
 2. The exact category.
 3. Estimated hazard score from 1 (minor nuisance) to 10 (life-threatening hazard).
 4. Detailed hazard explanation.
 Return pure JSON with keys: isCivicIssue (boolean), predictedCategory (string), confidence (float 0-1), estimatedHazard (int 1-10), hazardAnalysis (string), recommendedTags (array of strings).`;
+
+      const imagePart = getGeminiImagePart(photoUrl);
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -43,10 +68,7 @@ Return pure JSON with keys: isCivicIssue (boolean), predictedCategory (string), 
           body: JSON.stringify({
             contents: [
               {
-                parts: [
-                  { text: prompt },
-                  { text: `Image URL: ${photoUrl}` },
-                ],
+                parts: [{ text: prompt }, imagePart],
               },
             ],
           }),
@@ -135,8 +157,10 @@ Return pure JSON with keys: isRepaired (boolean), repairConfidence (float 0-1), 
               {
                 parts: [
                   { text: prompt },
-                  { text: `Before Photo: ${beforePhotoUrl}` },
-                  { text: `After Photo: ${afterPhotoUrl}` },
+                  { text: "Before Photo (Original Complaint):" },
+                  getGeminiImagePart(beforePhotoUrl),
+                  { text: "After Photo (Officer Resolution Proof):" },
+                  getGeminiImagePart(afterPhotoUrl),
                 ],
               },
             ],

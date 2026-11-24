@@ -1,8 +1,76 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import prisma from "./prisma";
+import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 const JWT_SECRET = process.env.JWT_SECRET || "citycivic-secure-jwt-dev-secret-key-2026";
+
+async function dispatchLiveEmail(email: string, code: string) {
+  // 1. Try Resend API if configured
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const fromEmail = process.env.EMAIL_FROM || "onboarding@resend.dev";
+      await resend.emails.send({
+        from: `CityCivic Platform <${fromEmail}>`,
+        to: email,
+        subject: `Your CityCivic Verification Code: ${code}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; rounded: 16px;">
+            <div style="background: #10b981; color: white; padding: 12px 18px; border-radius: 12px; font-weight: bold; font-size: 18px; text-align: center;">
+              CityCivic Verification
+            </div>
+            <h2 style="color: #0f172a; margin-top: 20px;">Your 6-Digit Code</h2>
+            <p style="color: #64748b; font-size: 14px;">Use this verification code to submit, corroborate, or audit civic complaints in your neighborhood:</p>
+            <div style="background: #f1f5f9; padding: 16px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #0f172a; font-family: monospace;">
+              ${code}
+            </div>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">This code is valid for 10 minutes. If you did not request this, you can safely ignore this email.</p>
+          </div>
+        `,
+      });
+      console.log(`✅ [RESEND] Dispatched real verification email to ${email}`);
+      return;
+    } catch (err) {
+      console.error("❌ Resend dispatch error:", err);
+    }
+  }
+
+  // 2. Try SMTP if configured
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: parseInt(process.env.SMTP_PORT || "587"),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"CityCivic" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: `Your CityCivic Verification Code: ${code}`,
+        text: `Your CityCivic verification code is: ${code}. Valid for 10 minutes.`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>CityCivic Verification Code</h2>
+            <p>Your 6-digit verification code is:</p>
+            <h1 style="letter-spacing: 5px; color: #10b981;">${code}</h1>
+            <p>Valid for 10 minutes.</p>
+          </div>
+        `,
+      });
+      console.log(`✅ [SMTP] Dispatched real email to ${email}`);
+      return;
+    } catch (err) {
+      console.error("❌ SMTP dispatch error:", err);
+    }
+  }
+}
 
 // Known disposable email domains to prevent spam
 export const DISPOSABLE_EMAIL_DOMAINS = new Set([
@@ -145,6 +213,9 @@ export async function createAndSendOtp(email: string, phone: string): Promise<{ 
   console.log(`🔐 CODE: ${code} (Valid for 10 minutes)`);
   console.log(`📱 Recorded Contact Phone: ${phoneCheck.cleanPhone}`);
   console.log(`======================================================\n`);
+
+  // Dispatch via Resend or SMTP if configured
+  await dispatchLiveEmail(normalizedEmail, code);
 
   return {
     success: true,
