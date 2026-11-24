@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { confirmResolution } from "@/lib/dispute";
+import { serverCache } from "@/lib/cache";
 
 export async function POST(
   req: Request,
@@ -17,6 +18,9 @@ export async function POST(
 
     const { id } = await params;
     const result = await confirmResolution(id, session.userId);
+
+    // Invalidate caches
+    await serverCache.expireTags(["issues", "analytics", "map", "contractors", `issue:${id}`]);
 
     return NextResponse.json(result);
   } catch (error: any) {

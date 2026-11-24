@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { disputeResolution } from "@/lib/dispute";
+import { serverCache } from "@/lib/cache";
 
 export async function POST(
   req: Request,
@@ -32,6 +33,9 @@ export async function POST(
       reason: reason.trim(),
       evidencePhotoUrl,
     });
+
+    // Invalidate caches
+    await serverCache.expireTags(["issues", "analytics", "map", `issue:${id}`]);
 
     return NextResponse.json(result);
   } catch (error: any) {

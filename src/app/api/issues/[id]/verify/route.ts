@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { submitVerification } from "@/lib/severity";
+import { serverCache } from "@/lib/cache";
 
 export async function POST(
   req: Request,
@@ -35,6 +36,9 @@ export async function POST(
       userLng: userLng ? parseFloat(userLng) : undefined,
       comment,
     });
+
+    // Invalidate caches
+    await serverCache.expireTags(["issues", "analytics", "map", "leaderboard", `issue:${id}`]);
 
     return NextResponse.json(result);
   } catch (error: any) {

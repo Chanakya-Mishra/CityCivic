@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { submitResolutionProof } from "@/lib/workorders";
+import { serverCache } from "@/lib/cache";
 
 export async function POST(req: Request) {
   try {
@@ -38,6 +39,9 @@ export async function POST(req: Request) {
       notes: notes || "Repair successfully executed on site.",
       contractorName: contractorName || "Municipal Ward Repair Crew",
     });
+
+    // Invalidate caches
+    await serverCache.expireTags(["issues", "analytics", "map", "contractors", "wards", "workorders", `issue:${issueId}`]);
 
     return NextResponse.json({
       success: true,

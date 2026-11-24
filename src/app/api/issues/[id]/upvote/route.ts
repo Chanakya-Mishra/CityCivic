@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { upvoteIssue } from "@/lib/severity";
+import { serverCache } from "@/lib/cache";
 
 export async function POST(
   req: Request,
@@ -20,6 +21,9 @@ export async function POST(
     const { userLat, userLng } = body;
 
     const result = await upvoteIssue(id, session.userId, userLat, userLng);
+
+    // Invalidate affected caches
+    await serverCache.expireTags(["issues", "analytics", "map", "leaderboard", `issue:${id}`]);
 
     return NextResponse.json(result);
   } catch (error: any) {

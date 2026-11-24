@@ -1,5 +1,6 @@
 import prisma from "./prisma";
 import { calculateDistanceMeters, findMatchingWard } from "./geo";
+import { serverCache } from "./cache";
 
 export interface DuplicateCandidate {
   id: string;
@@ -233,6 +234,9 @@ export async function createCivicIssue(input: CreateIssueInput) {
       },
     });
   }
+
+  // Purge server-side cache for map markers, analytics, and issue listings
+  await serverCache.expireTags(["issues", "analytics", "map", "wards", "audit"]);
 
   return issue;
 }

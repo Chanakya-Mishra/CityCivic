@@ -32,6 +32,16 @@ export default function HomePage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([12.9784, 77.6408]);
   const [mobileView, setMobileView] = useState<"both" | "map" | "feed">("both");
 
+  // Fetch categories once on mount (cached)
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.categories) setCategories(data.categories);
+      })
+      .catch((err) => console.warn("Failed to fetch categories:", err));
+  }, []);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -40,11 +50,7 @@ export default function HomePage() {
       if (selectedCategory !== "ALL") params.append("categoryCode", selectedCategory);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
 
-      const [mapRes, catRes] = await Promise.all([
-        fetch(`/api/public/map?${params.toString()}`),
-        fetch("/api/categories"),
-      ]);
-
+      const mapRes = await fetch(`/api/public/map?${params.toString()}`);
       if (mapRes.ok) {
         const mapData = await mapRes.json();
         setMarkers(mapData.markers || []);
@@ -54,11 +60,6 @@ export default function HomePage() {
           const ward = mapData.wards.find((w: any) => w.id === selectedWard);
           if (ward) setMapCenter([ward.centerLat, ward.centerLng]);
         }
-      }
-
-      if (catRes.ok) {
-        const catData = await catRes.json();
-        setCategories(catData.categories || []);
       }
     } finally {
       setLoading(false);

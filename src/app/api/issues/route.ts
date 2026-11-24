@@ -2,53 +2,67 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { createCivicIssue } from "@/lib/dedup";
+import { serverCache, cacheHeaders } from "@/lib/cache";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const wardId = searchParams.get("wardId");
-    const status = searchParams.get("status");
-    const categoryCode = searchParams.get("categoryCode");
-    const masterOnly = searchParams.get("masterOnly") !== "false"; // default true
-    const search = searchParams.get("search");
+    const wardId = searchParams.get("wardId") || "ALL";
+    const status = searchParams.get("status") || "ALL";
+    const categoryCode = searchParams.get("categoryCode") || "ALL";
+    const masterOnly = searchParams.get("masterOnly") !== "false";
+    const search = searchParams.get("search") || "";
 
-    const where: any = {};
+    const cacheKey = `issues:feed:${wardId}:${status}:${categoryCode}:${masterOnly}:${search}`;
 
-    if (wardId) where.wardId = wardId;
-    if (status && status !== "ALL") where.status = status;
-    if (categoryCode && categoryCode !== "ALL") where.categoryCode = categoryCode;
-    if (masterOnly) where.isMaster = true;
-    if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { trackingCode: { contains: search } },
-        { address: { contains: search } },
-      ];
-    }
+    const data = await serverCache.remember(
+      cacheKey,
+      20, // 20s server cache
+      async () => {
+        const where: any = {};
 
-    const issues = await prisma.issue.findMany({
-      where,
-      include: {
-        category: true,
-        ward: true,
-        reportedBy: { select: { id: true, name: true, karma: true } },
-        resolutionProof: true,
-        _count: {
-          select: {
-            childIssues: true,
-            upvotes: true,
-            verifications: true,
-            disputes: true,
+        if (wardId !== "ALL") where.wardId = wardId;
+        if (status !== "ALL") where.status = status;
+        if (categoryCode !== "ALL") where.categoryCode = categoryCode;
+        if (masterOnly) where.isMaster = true;
+        if (search) {
+          where.OR = [
+            { title: { contains: search } },
+            { trackingCode: { contains: search } },
+            { address: { contains: search } },
+          ];
+        }
+
+        const issues = await prisma.issue.findMany({
+          where,
+          include: {
+            category: true,
+            ward: true,
+            reportedBy: { select: { id: true, name: true, karma: true } },
+            resolutionProof: true,
+            _count: {
+              select: {
+                childIssues: true,
+                upvotes: true,
+                verifications: true,
+                disputes: true,
+              },
+            },
           },
-        },
-      },
-      orderBy: [
-        { dynamicSeverity: "desc" },
-        { createdAt: "desc" },
-      ],
-    });
+          orderBy: [
+            { dynamicSeverity: "desc" },
+            { createdAt: "desc" },
+          ],
+        });
 
-    return NextResponse.json({ issues, count: issues.length });
+        return { issues, count: issues.length };
+      },
+      ["issues"]
+    );
+
+    return NextResponse.json(data, {
+      headers: cacheHeaders(10, 30),
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

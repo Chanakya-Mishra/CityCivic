@@ -3,18 +3,31 @@ import prisma from "./prisma";
 export async function getCityAnalytics() {
   const totalIssues = await prisma.issue.count();
   const masterIssues = await prisma.issue.count({ where: { isMaster: true } });
-  const childIssues = await prisma.issue.count({ where: { isMaster: false } });
-  const resolvedIssues = await prisma.issue.count({ where: { status: "OFFICIALLY_RESOLVED" } });
-  const provisionallyResolved = await prisma.issue.count({ where: { status: "PROVISIONALLY_RESOLVED" } });
-  const disputedIssues = await prisma.issue.count({ where: { status: "REOPENED_DISPUTED" } });
+  const childIssues = Math.max(0, totalIssues - masterIssues);
+
+  // Consolidate status counts into a single groupBy query
+  const statusCounts = await prisma.issue.groupBy({
+    by: ["status"],
+    _count: { id: true },
+  });
+  const statusMap = Object.fromEntries(
+    statusCounts.map((s) => [s.status, s._count.id])
+  );
+
+  const resolvedIssues = statusMap["OFFICIALLY_RESOLVED"] || 0;
+  const provisionallyResolved = statusMap["PROVISIONALLY_RESOLVED"] || 0;
+  const disputedIssues = statusMap["REOPENED_DISPUTED"] || 0;
+
   const totalUpvotes = await prisma.upvote.count();
   const totalVerifications = await prisma.verification.count();
   const totalWards = await prisma.ward.count();
+
   const categories = await prisma.category.findMany({
     include: {
       _count: { select: { issues: true } },
     },
   });
+
   const wards = await prisma.ward.findMany({
     include: {
       issues: {
