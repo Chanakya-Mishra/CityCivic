@@ -90,7 +90,7 @@ export default function CivicMapInner({
       center={center}
       zoom={zoom}
       scrollWheelZoom={true}
-      className="w-full h-full min-h-[450px]"
+      className="w-full h-full min-h-[280px] sm:min-h-[360px] lg:min-h-[500px]"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
