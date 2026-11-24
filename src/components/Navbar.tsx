@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   MapPin,
@@ -19,7 +19,20 @@ import {
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, openAuthModal, switchPersona, logout } = useAuth();
+  const router = useRouter();
+  const { user, openAuthModal, openRoleModal, switchPersona, logout } = useAuth();
+
+  const handleRoleClick = (role: "CITIZEN" | "WARD_OFFICER" | "ADMIN") => {
+    if (role === "CITIZEN") {
+      switchPersona("CITIZEN");
+    } else {
+      if (user?.role === role) {
+        router.push(role === "WARD_OFFICER" ? "/officer" : "/admin");
+      } else {
+        openRoleModal(role);
+      }
+    }
+  };
 
   const navItems = [
     { href: "/", label: "Public City Map", icon: MapPin },
@@ -81,35 +94,35 @@ export function Navbar() {
 
           {/* Persona Switcher & User Profile */}
           <div className="flex items-center gap-2.5">
-            {/* Quick Demo Switcher */}
+            {/* Role Switcher */}
             <div className="hidden lg:flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
               <button
-                onClick={() => switchPersona("CITIZEN")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition ${
-                  user?.role === "CITIZEN" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                onClick={() => handleRoleClick("CITIZEN")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
+                  user?.role === "CITIZEN" ? "bg-white text-slate-900 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
-                title="Switch to Resident perspective"
+                title="Switch to Resident perspective (Open to all citizens)"
               >
                 Resident
               </button>
-              <Link
-                href="/officer"
-                className={`px-2.5 py-1 rounded-lg font-medium transition ${
+              <button
+                onClick={() => handleRoleClick("WARD_OFFICER")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
                   user?.role === "WARD_OFFICER" ? "bg-white text-emerald-700 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
-                title="Ward Officer Console (Password Secured)"
+                title={user?.role === "WARD_OFFICER" ? "Ward Field Officer Active" : "Shift to Ward Officer (Requires Password)"}
               >
                 Ward Officer
-              </Link>
-              <Link
-                href="/admin"
-                className={`px-2.5 py-1 rounded-lg font-medium transition ${
+              </button>
+              <button
+                onClick={() => handleRoleClick("ADMIN")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
                   user?.role === "ADMIN" ? "bg-white text-blue-700 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
-                title="City Admin Console (Password Secured)"
+                title={user?.role === "ADMIN" ? "City Commissioner Active" : "Shift to City Admin (Requires Password)"}
               >
                 City Admin
-              </Link>
+              </button>
             </div>
 
             {/* User chip or Login button */}
@@ -168,6 +181,39 @@ export function Navbar() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Mobile Perspective Switcher */}
+        <div className="flex lg:hidden items-center justify-between gap-1 py-1.5 px-1 border-t border-slate-100 text-[11px] bg-slate-50/70 rounded-b-xl">
+          <span className="text-slate-400 font-bold px-1 uppercase tracking-wider text-[9px]">
+            Perspective:
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleRoleClick("CITIZEN")}
+              className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                user?.role === "CITIZEN" ? "bg-white text-slate-900 shadow-xs font-bold" : "text-slate-500"
+              }`}
+            >
+              Resident
+            </button>
+            <button
+              onClick={() => handleRoleClick("WARD_OFFICER")}
+              className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                user?.role === "WARD_OFFICER" ? "bg-white text-emerald-700 shadow-xs font-bold" : "text-slate-500"
+              }`}
+            >
+              Officer
+            </button>
+            <button
+              onClick={() => handleRoleClick("ADMIN")}
+              className={`px-2 py-0.5 rounded-md font-medium transition cursor-pointer ${
+                user?.role === "ADMIN" ? "bg-white text-blue-700 shadow-xs font-bold" : "text-slate-500"
+              }`}
+            >
+              Admin
+            </button>
+          </div>
         </div>
       </div>
     </header>

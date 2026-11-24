@@ -19,6 +19,10 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
+  isRoleModalOpen: boolean;
+  targetRole: "WARD_OFFICER" | "ADMIN" | null;
+  openRoleModal: (role: "WARD_OFFICER" | "ADMIN") => void;
+  closeRoleModal: () => void;
   refreshUser: () => Promise<void>;
   switchPersona: (role: "CITIZEN" | "WARD_OFFICER" | "ADMIN", password?: string) => Promise<{ success: boolean; error?: string }>;
   governanceLogin: (email: string, password: string, role?: string) => Promise<{ success: boolean; error?: string }>;
@@ -31,6 +35,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [targetRole, setTargetRole] = useState<"WARD_OFFICER" | "ADMIN" | null>(null);
+
+  const openRoleModal = (role: "WARD_OFFICER" | "ADMIN") => {
+    setTargetRole(role);
+    setIsRoleModalOpen(true);
+  };
+
+  const closeRoleModal = () => {
+    setIsRoleModalOpen(false);
+    setTargetRole(null);
+  };
 
   const fetchCurrentUser = async () => {
     try {
@@ -114,6 +130,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),
         closeAuthModal: () => setIsAuthModalOpen(false),
+        isRoleModalOpen,
+        targetRole,
+        openRoleModal,
+        closeRoleModal,
         refreshUser: fetchCurrentUser,
         switchPersona,
         governanceLogin,

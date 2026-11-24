@@ -29,7 +29,7 @@ export default function WardOfficerPage() {
   const [loading, setLoading] = useState(true);
 
   // Municipal Governance Auth State
-  const [officerEmail, setOfficerEmail] = useState("officer.indiranagar@citycivic.gov");
+  const [officerEmail, setOfficerEmail] = useState("");
   const [officerPassword, setOfficerPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authenticating, setAuthenticating] = useState(false);
@@ -211,7 +211,7 @@ export default function WardOfficerPage() {
                   required
                   value={officerEmail}
                   onChange={(e) => setOfficerEmail(e.target.value)}
-                  placeholder="officer.indiranagar@citycivic.gov"
+                  placeholder="officer@citycivic.gov"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>

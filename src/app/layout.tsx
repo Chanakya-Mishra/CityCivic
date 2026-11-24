@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Navbar } from "@/components/Navbar";
 import { AuthModal } from "@/components/AuthModal";
+import { RoleSwitchModal } from "@/components/RoleSwitchModal";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://citycivic.vercel.app"),
@@ -37,6 +38,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <AuthModal />
+          <RoleSwitchModal />
           <main className="flex-1">{children}</main>
           <footer className="bg-white border-t border-slate-200 py-6 text-xs text-slate-500">
             <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
