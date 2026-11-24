@@ -22,34 +22,13 @@ import {
 } from "lucide-react";
 
 export default function WardOfficerPage() {
-  const { user, governanceLogin } = useAuth();
+  const { user, openRoleModal } = useAuth();
   const [issues, setIssues] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
   const [selectedWardId, setSelectedWardId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
-  // Municipal Governance Auth State
-  const [officerEmail, setOfficerEmail] = useState("");
-  const [officerPassword, setOfficerPassword] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authenticating, setAuthenticating] = useState(false);
-
-  const handleGovernanceAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthenticating(true);
-    try {
-      const res = await governanceLogin(officerEmail, officerPassword, "WARD_OFFICER");
-      if (!res.success) {
-        setAuthError(res.error || "Authentication failed. Invalid municipal credentials.");
-      } else {
-        setOfficerPassword("");
-        fetchData();
-      }
-    } finally {
-      setAuthenticating(false);
-    }
-  };
+  const isOfficer = user?.role === "WARD_OFFICER" || user?.role === "ADMIN";
 
   // Work order modal state
   const [selectedIssueForOrder, setSelectedIssueForOrder] = useState<any>(null);
@@ -110,6 +89,10 @@ export default function WardOfficerPage() {
 
   const handleCreateWorkOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOfficer) {
+      alert("Read-Only Mode: Resident accounts cannot dispatch work orders. Ward Officer authorization required.");
+      return;
+    }
     setSubmittingOrder(true);
     try {
       const res = await fetch("/api/officer/work-orders", {
@@ -141,6 +124,10 @@ export default function WardOfficerPage() {
 
   const handleSubmitResolution = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOfficer) {
+      alert("Read-Only Mode: Resident accounts cannot resolve issues. Ward Officer authorization required.");
+      return;
+    }
     setSubmittingResolve(true);
     setResolveError(null);
 
@@ -173,95 +160,11 @@ export default function WardOfficerPage() {
     }
   };
 
-  if (user?.role !== "WARD_OFFICER" && user?.role !== "ADMIN") {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-16">
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 p-6 text-white text-center">
-            <div className="w-14 h-14 bg-teal-500/20 border border-teal-400/30 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
-              <Lock className="w-7 h-7 text-teal-300" />
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-teal-300 mb-2">
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Restricted Municipal Access</span>
-            </div>
-            <h1 className="text-xl font-extrabold">Ward Field Operations Console</h1>
-            <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
-              This governing portal is restricted to authorized municipal field officers. Citizen accounts cannot access work orders or field resolution tools.
-            </p>
-          </div>
-
-          {/* Form */}
-          <div className="p-6 sm:p-8">
-            {authError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleGovernanceAuth} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Official Government Email
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={officerEmail}
-                  onChange={(e) => setOfficerEmail(e.target.value)}
-                  placeholder="officer@citycivic.gov"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Municipal Authorization Passphrase
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="password"
-                    required
-                    value={officerPassword}
-                    onChange={(e) => setOfficerPassword(e.target.value)}
-                    placeholder="Enter official password"
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  />
-                </div>
-                <p className="mt-1.5 text-[11px] text-slate-500">
-                  Enter the secure municipal passphrase issued to your Ward Engineering Unit.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={authenticating}
-                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-              >
-                {authenticating ? (
-                  <span>Verifying Credentials...</span>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Authenticate & Access Ward Console</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 text-center border-t border-slate-100 pt-4">
-              <Link href="/" className="text-xs text-slate-500 hover:text-slate-800 transition">
-                ← Return to Public City Map
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Stats for the active ward
+  const activeCount = issues.filter((i) => i.status !== "OFFICIALLY_RESOLVED").length;
+  const criticalCount = issues.filter((i) => i.dynamicSeverity >= 7).length;
+  const provisionalCount = issues.filter((i) => i.status === "PROVISIONALLY_RESOLVED").length;
+  const disputedCount = issues.filter((i) => i.status === "REOPENED_DISPUTED").length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -280,13 +183,15 @@ export default function WardOfficerPage() {
 
         {/* Ward Selector & CSV Export */}
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`/api/officer/work-orders/export?wardId=${selectedWardId || ""}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition"
-            download
-          >
-            <span>Export Run-Sheet (CSV)</span>
-          </a>
+          {isOfficer ? (
+            <a
+              href={`/api/officer/work-orders/export?wardId=${selectedWardId || ""}`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl transition"
+              download
+            >
+              <span>Export Run-Sheet (CSV)</span>
+            </a>
+          ) : null}
 
           <select
             value={selectedWardId}
@@ -299,6 +204,82 @@ export default function WardOfficerPage() {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Transparency / Officer Mode Banner */}
+      {!isOfficer ? (
+        <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-emerald-50/80 via-slate-50 to-teal-50/50 border border-teal-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 bg-teal-100 rounded-xl text-teal-700 shrink-0">
+              <Briefcase className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-teal-950 uppercase tracking-wider">
+                  Public Ward Field Operations Oversight
+                </span>
+                <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded-full border border-teal-200">
+                  Read-Only Mode
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+                Citizens can transparently monitor ward work orders, contractor repair assignments, and GPS resolution proofs. Modifying work orders, dispatching crews, and uploading official closure proofs are restricted to authorized Ward Officers.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => openRoleModal("WARD_OFFICER")}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 shrink-0"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Officer Sign In</span>
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 rounded-xl text-emerald-700 shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                  Ward Field Officer Mode Active
+                </span>
+                <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full">
+                  Officer Authorized
+                </span>
+              </div>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Logged in as {user?.name || user?.email} with authority to issue field work orders and submit verified GPS completion proofs.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ward Metric Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Ward Tickets</span>
+          <span className="text-2xl font-extrabold text-slate-900 block mt-1">{activeCount}</span>
+          <span className="text-[11px] text-slate-400">Awaiting or undergoing repair</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-xs bg-amber-50/30">
+          <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">High / Critical Hazard</span>
+          <span className="text-2xl font-extrabold text-amber-700 block mt-1">{criticalCount}</span>
+          <span className="text-[11px] text-amber-700">Dynamic severity &ge; 7</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-teal-200 p-4 shadow-xs bg-teal-50/30">
+          <span className="text-xs font-bold text-teal-800 uppercase tracking-wider">Provisionally Solved</span>
+          <span className="text-2xl font-extrabold text-teal-700 block mt-1">{provisionalCount}</span>
+          <span className="text-[11px] text-teal-700">In 72h community audit</span>
+        </div>
+        <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-xs bg-red-50/30">
+          <span className="text-xs font-bold text-red-800 uppercase tracking-wider">Disputed by Residents</span>
+          <span className="text-2xl font-extrabold text-red-700 block mt-1">{disputedCount}</span>
+          <span className="text-[11px] text-red-700">Requires re-investigation</span>
         </div>
       </div>
 
@@ -413,27 +394,59 @@ export default function WardOfficerPage() {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {issue.status === "OPEN" || issue.status === "REOPENED_DISPUTED" ? (
-                            <button
-                              onClick={() => setSelectedIssueForOrder(issue)}
-                              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition cursor-pointer"
-                            >
-                              Dispatch Crew
-                            </button>
-                          ) : null}
+                          {isOfficer ? (
+                            <>
+                              {issue.status === "OPEN" || issue.status === "REOPENED_DISPUTED" ? (
+                                <button
+                                  onClick={() => setSelectedIssueForOrder(issue)}
+                                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                                >
+                                  Dispatch Crew
+                                </button>
+                              ) : null}
 
-                          {!isResolved ? (
-                            <button
-                              onClick={() => setSelectedIssueForResolve(issue)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
-                            >
-                              <Camera className="w-3.5 h-3.5" />
-                              Upload Fix Proof
-                            </button>
+                              {!isResolved ? (
+                                <button
+                                  onClick={() => setSelectedIssueForResolve(issue)}
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                  Upload Fix Proof
+                                </button>
+                              ) : (
+                                <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Proof Filed
+                                </span>
+                              )}
+                            </>
                           ) : (
-                            <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Proof Filed
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {issue.status === "OPEN" || issue.status === "REOPENED_DISPUTED" ? (
+                                <button
+                                  onClick={() => openRoleModal("WARD_OFFICER")}
+                                  title="Sign in as Ward Officer to dispatch crew"
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Lock className="w-3 h-3 text-slate-400" />
+                                  <span>Dispatch</span>
+                                </button>
+                              ) : null}
+
+                              {!isResolved ? (
+                                <button
+                                  onClick={() => openRoleModal("WARD_OFFICER")}
+                                  title="Sign in as Ward Officer to upload fix proof"
+                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Lock className="w-3 h-3 text-slate-400" />
+                                  <span>Resolve</span>
+                                </button>
+                              ) : (
+                                <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Proof Filed
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -450,28 +463,59 @@ export default function WardOfficerPage() {
       {selectedIssueForOrder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
-            <h3 className="text-base font-bold text-slate-900 mb-2">
-              Dispatch Work Order: {selectedIssueForOrder.trackingCode}
-            </h3>
-            <p className="text-xs text-slate-500 mb-4">{selectedIssueForOrder.title}</p>
-
-            <form onSubmit={handleCreateWorkOrder} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Responsible Department
-                </label>
-                <select
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"
-                >
-                  <option value="Roads & Infrastructure">Roads & Infrastructure</option>
-                  <option value="Sanitation & Drainage">Sanitation & Drainage</option>
-                  <option value="Water Supply & Sewerage">Water Supply & Sewerage</option>
-                  <option value="Solid Waste Management">Solid Waste Management</option>
-                  <option value="Electrical Works">Electrical Works</option>
-                </select>
+            {!isOfficer ? (
+              <div className="text-center py-2">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-1">Ward Officer Authorization Required</h3>
+                <p className="text-xs text-slate-500 mb-5">
+                  You are browsing the Ward Console in resident oversight mode. Dispatching work orders and assigning municipal field crews are restricted to authorized Ward Officers.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIssueForOrder(null)}
+                    className="w-1/2 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedIssueForOrder(null);
+                      openRoleModal("WARD_OFFICER");
+                    }}
+                    className="w-1/2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+                  >
+                    Officer Sign In
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                <h3 className="text-base font-bold text-slate-900 mb-2">
+                  Dispatch Work Order: {selectedIssueForOrder.trackingCode}
+                </h3>
+                <p className="text-xs text-slate-500 mb-4">{selectedIssueForOrder.title}</p>
+
+                <form onSubmit={handleCreateWorkOrder} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Responsible Department
+                    </label>
+                    <select
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"
+                    >
+                      <option value="Roads & Infrastructure">Roads & Infrastructure</option>
+                      <option value="Sanitation & Drainage">Sanitation & Drainage</option>
+                      <option value="Water Supply & Sewerage">Water Supply & Sewerage</option>
+                      <option value="Solid Waste Management">Solid Waste Management</option>
+                      <option value="Electrical Works">Electrical Works</option>
+                    </select>
+                  </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -518,32 +562,65 @@ export default function WardOfficerPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
+    </div>
+  )}
 
-      {/* RESOLUTION PROOF MODAL (GEOFENCED) */}
-      {selectedIssueForResolve && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  Upload Geofenced Resolution Proof
-                </h3>
-                <span className="font-mono text-[11px] text-slate-400">
-                  {selectedIssueForResolve.trackingCode}
-                </span>
-              </div>
+  {/* RESOLUTION PROOF MODAL (GEOFENCED) */}
+  {selectedIssueForResolve && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              Upload Geofenced Resolution Proof
+            </h3>
+            <span className="font-mono text-[11px] text-slate-400">
+              {selectedIssueForResolve.trackingCode}
+            </span>
+          </div>
+          <button
+            onClick={() => setSelectedIssueForResolve(null)}
+            className="text-slate-400 hover:text-slate-600 p-1"
+          >
+            ✕
+          </button>
+        </div>
+
+        {!isOfficer ? (
+          <div className="text-center py-6">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 mb-1">Ward Officer Authorization Required</h3>
+            <p className="text-xs text-slate-500 mb-5">
+              You are browsing the Ward Console in resident oversight mode. Uploading official geofenced resolution proofs and marking issues resolved are restricted to authorized Ward Officers.
+            </p>
+            <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setSelectedIssueForResolve(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="w-1/2 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-xl"
               >
-                ✕
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIssueForResolve(null);
+                  openRoleModal("WARD_OFFICER");
+                }}
+                className="w-1/2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl"
+              >
+                Officer Sign In
               </button>
             </div>
-
+          </div>
+        ) : (
+          <>
             {resolveError && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -671,9 +748,11 @@ export default function WardOfficerPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
+    </div>
+  )}
     </div>
   );
 }
