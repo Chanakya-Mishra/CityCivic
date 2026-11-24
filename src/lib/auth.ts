@@ -4,7 +4,38 @@ import prisma from "./prisma";
 import { Resend } from "resend";
 import nodemailer from "nodemailer";
 
-const JWT_SECRET = process.env.JWT_SECRET || "citycivic-secure-jwt-dev-secret-key-2026";
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("FATAL: JWT_SECRET environment variable is missing in production!");
+    }
+    return "citycivic-secure-jwt-dev-secret-key-2026";
+  }
+  return secret;
+}
+
+export function getOfficerPassword(): string {
+  const pass = process.env.OFFICER_PASSWORD;
+  if (!pass) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("FATAL: OFFICER_PASSWORD environment variable is missing in production!");
+    }
+    return "CivicOfficer#2026!";
+  }
+  return pass;
+}
+
+export function getAdminPassword(): string {
+  const pass = process.env.ADMIN_PASSWORD;
+  if (!pass) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("FATAL: ADMIN_PASSWORD environment variable is missing in production!");
+    }
+    return "CityAdmin#2026!";
+  }
+  return pass;
+}
 
 async function dispatchLiveEmail(email: string, code: string) {
   // 1. Try Resend API if configured
@@ -134,12 +165,12 @@ export interface UserSessionPayload {
 }
 
 export function signUserToken(payload: UserSessionPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "90d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "90d" });
 }
 
 export function verifyUserToken(token: string): UserSessionPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as UserSessionPayload;
+    return jwt.verify(token, getJwtSecret()) as UserSessionPayload;
   } catch {
     return null;
   }

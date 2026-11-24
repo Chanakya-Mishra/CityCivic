@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { signUserToken, UserSessionPayload } from "@/lib/auth";
-
-const OFFICER_PASSWORD = process.env.OFFICER_PASSWORD || "CivicOfficer#2026!";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "CityAdmin#2026!";
+import { signUserToken, UserSessionPayload, getOfficerPassword, getAdminPassword } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { email, password, role } = body;
+
+    const OFFICER_PASSWORD = getOfficerPassword();
+    const ADMIN_PASSWORD = getAdminPassword();
 
     if (!email || !password) {
       return NextResponse.json(

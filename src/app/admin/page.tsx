@@ -146,12 +146,9 @@ export default function AdminAnalyticsPage() {
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 flex items-center justify-between">
-                  <span>Authorized Admin Passphrase:</span>
-                  <code className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                    CityAdmin#2026!
-                  </code>
-                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Enter the executive passphrase issued by the Municipal Commissioner's Office.
+                </p>
               </div>
 
               <button

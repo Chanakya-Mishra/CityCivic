@@ -231,12 +231,9 @@ export default function WardOfficerPage() {
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
-                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 flex items-center justify-between">
-                  <span>Authorized Municipal Passphrase:</span>
-                  <code className="font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
-                    CivicOfficer#2026!
-                  </code>
-                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Enter the secure municipal passphrase issued to your Ward Engineering Unit.
+                </p>
               </div>
 
               <button
