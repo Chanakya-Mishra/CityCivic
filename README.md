@@ -95,8 +95,8 @@ $$\text{DSI} = \text{Base Category Hazard (1--10)} + \lfloor 1.5 \times \ln(\tex
 | Portal / Role | Access URL | Authentication | Capabilities |
 | :--- | :--- | :--- | :--- |
 | **Resident / Citizen** | `/`, `/report`, `/leaderboard` | **Zero-Cost Email OTP** + Phone Record | Report geotagged issues, upvote neighborhood hazards, complete on-ground surveys, dispute ghost closures, track karma. |
-| **Ward Field Officer** | `/officer` | **Password-Secured Governance Auth** (`CivicOfficer#2026!`) | View ward backlog, dispatch official work orders (`WO-2026-XXXX`), export CSV run-sheets, upload on-site geofenced resolution photos. |
-| **City Commissioner Admin** | `/admin` | **Password-Secured Governance Auth** (`CityAdmin#2026!`) | View executive city-wide analytics, monitor deduplication rates, audit contractor scorecards and penalty strikes, inspect full audit ledger. |
+| **Ward Field Officer** | `/officer` | **Password-Secured Governance Auth** (`yourpassword`) | View ward backlog, dispatch official work orders (`WO-2026-XXXX`), export CSV run-sheets, upload on-site geofenced resolution photos. |
+| **City Commissioner Admin** | `/admin` | **Password-Secured Governance Auth** (`your-password`) | View executive city-wide analytics, monitor deduplication rates, audit contractor scorecards and penalty strikes, inspect full audit ledger. |
 
 ---
 
@@ -165,33 +165,6 @@ CityCivic uses Prisma ORM connected to PostgreSQL. The primary entities include:
 
 ---
 
-## 🔌 API Route Reference
-
-| Endpoint | Method | Role | Description |
-| :--- | :---: | :---: | :--- |
-| `/api/public/map` | `GET` | Public | Returns GIS markers for all Master Tickets with ward boundaries (cached). |
-| `/api/issues` | `GET` | Public | Retrieves neighborhood incident feed filtered by ward, status, or category. |
-| `/api/issues` | `POST` | Citizen | Submits new geotagged report with automatic 20m child deduplication. |
-| `/api/issues/[id]` | `GET` | Public | Returns complete public audit trail, photo comparisons, and child reports. |
-| `/api/issues/[id]/upvote` | `POST` | Citizen | Registers instant corroborating upvote and escalates severity. |
-| `/api/issues/[id]/verify` | `POST` | Citizen | Submits on-site ground truth verification survey (+5 Karma). |
-| `/api/issues/[id]/dispute` | `POST` | Citizen | Disputes provisional resolution with photo proof; reopens ticket (+15 Karma). |
-| `/api/issues/[id]/confirm-resolution` | `POST` | Citizen | Confirms repair; marks ticket as Officially Resolved. |
-| `/api/issues/check-duplicates` | `GET` | Public | Real-time spatial query for active complaints within proximity radius. |
-| `/api/ai/inspect-image` | `POST` | Public | Gemini AI visual triage to detect genuine municipal damage and initial hazard. |
-| `/api/ai/verify-repair` | `POST` | Officer | Gemini AI before/after repair verification to prevent fraud. |
-| `/api/auth/send-otp` | `POST` | Public | Dispatches 6-digit email OTP for resident authentication. |
-| `/api/auth/verify-otp` | `POST` | Public | Verifies OTP and issues signed citizen JWT session. |
-| `/api/auth/governance-login` | `POST` | Officer/Admin | **Password-secured authentication** for municipal officers and administrators. |
-| `/api/auth/demo-switch` | `POST` | Public/Officer | Secured persona switcher (requires password for governing roles). |
-| `/api/officer/work-orders` | `GET`, `POST` | Officer/Admin | Lists and dispatches official municipal work orders. |
-| `/api/officer/work-orders/export` | `GET` | Officer/Admin | Exports run-sheet of pending repairs in CSV format. |
-| `/api/officer/resolve` | `POST` | Officer | Submits on-site geofenced resolution proof ($\le 100\text{m}$ lock). |
-| `/api/admin/analytics` | `GET` | Officer/Admin | City-wide deduplication metrics, ward rankings, and contractor scorecards. |
-| `/api/leaderboard` | `GET` | Public | Citizen karma rankings and neighborhood champion badges. |
-
----
-
 ## 💻 Local Development & Setup
 
 ### Prerequisites
@@ -219,10 +192,6 @@ SMTP_HOST="smtp.gmail.com"
 SMTP_PORT="587"
 SMTP_USER="your-email@gmail.com"
 SMTP_PASS="your-app-password"
-
-# Municipal Governance Credentials
-OFFICER_PASSWORD="CivicOfficer#2026!"
-ADMIN_PASSWORD="CityAdmin#2026!"
 ```
 
 ### 3. Initialize Database & Seed
