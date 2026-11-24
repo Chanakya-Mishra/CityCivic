@@ -313,6 +313,12 @@ export default function ReportIssuePage() {
         throw new Error(data.error || "Failed to submit issue.");
       }
 
+      if (data.isAutoGrouped) {
+        alert(
+          `Spatial Deduplication: An active ${categoryCode} incident was detected within 20m (${data.autoDistance}m away).\n\nYour report has been automatically linked as a recurring child complaint to boost priority, without creating duplicate work orders.`
+        );
+      }
+
       router.push(`/issues/${data.issue.id}`);
     } catch (err: any) {
       setError(err.message);

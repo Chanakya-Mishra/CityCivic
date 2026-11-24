@@ -2,10 +2,27 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { signUserToken, UserSessionPayload } from "@/lib/auth";
 
+const OFFICER_PASSWORD = process.env.OFFICER_PASSWORD || "CivicOfficer#2026!";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "CityAdmin#2026!";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { role = "CITIZEN" } = body;
+    const { role = "CITIZEN", password } = body;
+
+    // Security Gate: Switching to governing roles requires municipal credentials
+    if (role === "WARD_OFFICER" || role === "ADMIN") {
+      const expected = role === "ADMIN" ? ADMIN_PASSWORD : OFFICER_PASSWORD;
+      if (password !== expected && password !== ADMIN_PASSWORD) {
+        return NextResponse.json(
+          {
+            error:
+              "Access denied: Municipal authorization password is required to assume Ward Officer or Admin governance roles.",
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     let targetEmail = "citizen.demo@gmail.com";
     if (role === "WARD_OFFICER") {

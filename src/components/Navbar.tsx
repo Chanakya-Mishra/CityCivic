@@ -92,24 +92,24 @@ export function Navbar() {
               >
                 Resident
               </button>
-              <button
-                onClick={() => switchPersona("WARD_OFFICER")}
+              <Link
+                href="/officer"
                 className={`px-2.5 py-1 rounded-lg font-medium transition ${
-                  user?.role === "WARD_OFFICER" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  user?.role === "WARD_OFFICER" ? "bg-white text-emerald-700 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
-                title="Switch to Ward 02 Officer (Indiranagar)"
+                title="Ward Officer Console (Password Secured)"
               >
                 Ward Officer
-              </button>
-              <button
-                onClick={() => switchPersona("ADMIN")}
+              </Link>
+              <Link
+                href="/admin"
                 className={`px-2.5 py-1 rounded-lg font-medium transition ${
-                  user?.role === "ADMIN" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
+                  user?.role === "ADMIN" ? "bg-white text-blue-700 shadow-sm font-bold" : "text-slate-600 hover:text-slate-900"
                 }`}
-                title="Switch to City Commissioner Admin"
+                title="City Admin Console (Password Secured)"
               >
                 City Admin
-              </button>
+              </Link>
             </div>
 
             {/* User chip or Login button */}

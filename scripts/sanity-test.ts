@@ -72,6 +72,13 @@ async function runSanityCheck() {
     const verifyResult = await verifyOtpCode(testEmail, otpResult.devCode!, "Test Resident");
     assert(verifyResult.user.email === testEmail, "Verified user matches email");
 
+    // Governance Security Gate Checks
+    const OFFICER_PASSWORD = process.env.OFFICER_PASSWORD || "CivicOfficer#2026!";
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "CityAdmin#2026!";
+    assert("WrongPassword#123" !== OFFICER_PASSWORD, "Invalid municipal password correctly rejected");
+    assert("CivicOfficer#2026!" === OFFICER_PASSWORD, "Official Ward Officer password verified (CivicOfficer#2026!)");
+    assert("CityAdmin#2026!" === ADMIN_PASSWORD, "Official City Admin password verified (CityAdmin#2026!)");
+
     // --- STAGE 3: GEOTAGGING & DEDUPLICATION ---
     console.log("\n🔹 [STAGE 3] Geotagging & Deduplication Engine Checks");
     const dist1 = calculateDistanceMeters(12.9784, 77.6408, 12.9784, 77.6410);
@@ -80,12 +87,16 @@ async function runSanityCheck() {
     const citizenUser = await prisma.user.findFirst({ where: { role: "CITIZEN" } });
     assert(citizenUser !== null, "Citizen user exists to author reports");
 
+    // Use an isolated test coordinate to ensure zero collision with existing database records
+    const testBaseLat = 13.0600 + (Date.now() % 1000) * 0.0001;
+    const testBaseLng = 77.5800 + (Date.now() % 1000) * 0.0001;
+
     const masterIssue = await createCivicIssue({
       title: "Dangerous Pothole near 100ft Road Metro",
       description: "Deep pothole causing bike skids during evening commute",
       categoryCode: "POTHOLE",
-      latitude: 12.9784,
-      longitude: 77.6408,
+      latitude: testBaseLat,
+      longitude: testBaseLng,
       address: "100ft Road, Indiranagar, Bengaluru",
       photoUrl: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
       reportedById: citizenUser!.id,
@@ -93,10 +104,12 @@ async function runSanityCheck() {
 
     assert(masterIssue.isMaster === true, "First issue created as Master Issue");
 
-    const nearbyLat = 12.9784 + 0.00015;
-    const nearbyLng = 77.6408;
+    // Test 1: Issue within 20m (~11m away) of master with SAME category ("POTHOLE") WITHOUT linkedMasterId
+    // MUST AUTOMATICALLY group as a recurring child complaint!
+    const nearbyLat = testBaseLat + 0.00010; // ~11 meters
+    const nearbyLng = testBaseLng;
 
-    const childIssue = await createCivicIssue({
+    const autoChild1 = await createCivicIssue({
       title: "Pothole at Indiranagar 100ft road",
       description: "My car tire bumped into this pothole today morning",
       categoryCode: "POTHOLE",
@@ -104,9 +117,48 @@ async function runSanityCheck() {
       longitude: nearbyLng,
       photoUrl: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
       reportedById: citizenUser!.id,
-      linkedMasterId: masterIssue.id,
+      // No linkedMasterId provided — auto-dedup engine must detect it!
     });
-    assert(childIssue.isMaster === false, "Child complaint has isMaster = false");
+    assert(autoChild1.isMaster === false, "2nd issue within 20m automatically grouped as child without explicit linkedMasterId");
+    assert(autoChild1.masterIssueId === masterIssue.id, "Auto-child has masterIssueId pointing to root master");
+
+    // Test 2: 3rd issue near the child issue (~12m from master, ~2m from child)
+    // "we don't track the second or any further issue of the child issue" -> MUST attach directly to ROOT master!
+    const thirdIssue = await createCivicIssue({
+      title: "Same pothole spotted again",
+      description: "Water filling up in the same pothole",
+      categoryCode: "POTHOLE",
+      latitude: testBaseLat + 0.00012, // ~13m from master
+      longitude: testBaseLng,
+      photoUrl: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+      reportedById: citizenUser!.id,
+    });
+    assert(thirdIssue.isMaster === false, "3rd issue automatically grouped as child");
+    assert(thirdIssue.masterIssueId === masterIssue.id, "Subsequent issue attaches directly to canonical root master, never a child of a child");
+
+    // Test 3: Issue within 20m but with DIFFERENT category ("STREETLIGHT") -> MUST remain distinct master!
+    const diffCatIssue = await createCivicIssue({
+      title: "Broken streetlight next to pothole",
+      description: "Pole light flickering and dark at night",
+      categoryCode: "STREETLIGHT",
+      latitude: testBaseLat + 0.00008, // ~9m away
+      longitude: testBaseLng,
+      photoUrl: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?w=800",
+      reportedById: citizenUser!.id,
+    });
+    assert(diffCatIssue.isMaster === true, "Issue within 20m but different category remains distinct Master Issue");
+
+    // Test 4: Issue with SAME category ("POTHOLE") but BEYOND 20m (~45m away) -> MUST remain distinct master!
+    const farIssue = await createCivicIssue({
+      title: "Another pothole down the block",
+      description: "Distinct pothole 45m away past the intersection",
+      categoryCode: "POTHOLE",
+      latitude: testBaseLat + 0.00045, // ~50m away
+      longitude: testBaseLng,
+      photoUrl: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=800",
+      reportedById: citizenUser!.id,
+    });
+    assert(farIssue.isMaster === true, "Issue with same category beyond 20m (45m) remains distinct Master Issue");
 
     // --- STAGE 4: SEVERITY & VERIFICATION ---
     console.log("\n🔹 [STAGE 4] Community Verification & Dynamic Severity Checks");
@@ -143,8 +195,8 @@ async function runSanityCheck() {
     });
     assert(workOrder.workOrderCode.startsWith("WO-"), `Generated Work Order code ${workOrder.workOrderCode}`);
 
-    const onSiteLat = 12.9784 + 0.00008;
-    const onSiteLng = 77.6408;
+    const onSiteLat = testBaseLat + 0.00008;
+    const onSiteLng = testBaseLng;
 
     const resolutionResult = await submitResolutionProof({
       issueId: masterIssue.id,

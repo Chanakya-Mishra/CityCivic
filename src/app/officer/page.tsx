@@ -16,14 +16,40 @@ import {
   ShieldCheck,
   Send,
   UserCheck,
+  Lock,
+  ShieldAlert,
+  KeyRound,
 } from "lucide-react";
 
 export default function WardOfficerPage() {
-  const { user, switchPersona } = useAuth();
+  const { user, governanceLogin } = useAuth();
   const [issues, setIssues] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
   const [selectedWardId, setSelectedWardId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+
+  // Municipal Governance Auth State
+  const [officerEmail, setOfficerEmail] = useState("officer.indiranagar@citycivic.gov");
+  const [officerPassword, setOfficerPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const handleGovernanceAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthenticating(true);
+    try {
+      const res = await governanceLogin(officerEmail, officerPassword, "WARD_OFFICER");
+      if (!res.success) {
+        setAuthError(res.error || "Authentication failed. Invalid municipal credentials.");
+      } else {
+        setOfficerPassword("");
+        fetchData();
+      }
+    } finally {
+      setAuthenticating(false);
+    }
+  };
 
   // Work order modal state
   const [selectedIssueForOrder, setSelectedIssueForOrder] = useState<any>(null);
@@ -147,30 +173,101 @@ export default function WardOfficerPage() {
     }
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Officer Perspective Switcher Banner */}
-      {user?.role !== "WARD_OFFICER" && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <UserCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-emerald-950">
-                Viewing as {user?.role || "GUEST"}
-              </p>
-              <p className="text-[11px] text-emerald-700">
-                Switch to Ward Officer role to execute work orders and upload geofenced resolution proof.
-              </p>
+  if (user?.role !== "WARD_OFFICER" && user?.role !== "ADMIN") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 p-6 text-white text-center">
+            <div className="w-14 h-14 bg-teal-500/20 border border-teal-400/30 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
+              <Lock className="w-7 h-7 text-teal-300" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-teal-300 mb-2">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Restricted Municipal Access</span>
+            </div>
+            <h1 className="text-xl font-extrabold">Ward Field Operations Console</h1>
+            <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+              This governing portal is restricted to authorized municipal field officers. Citizen accounts cannot access work orders or field resolution tools.
+            </p>
+          </div>
+
+          {/* Form */}
+          <div className="p-6 sm:p-8">
+            {authError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleGovernanceAuth} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Official Government Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={officerEmail}
+                  onChange={(e) => setOfficerEmail(e.target.value)}
+                  placeholder="officer.indiranagar@citycivic.gov"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Municipal Authorization Passphrase
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={officerPassword}
+                    onChange={(e) => setOfficerPassword(e.target.value)}
+                    placeholder="Enter official password"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 flex items-center justify-between">
+                  <span>Authorized Municipal Passphrase:</span>
+                  <code className="font-mono font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                    CivicOfficer#2026!
+                  </code>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authenticating}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {authenticating ? (
+                  <span>Verifying Credentials...</span>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Authenticate & Access Ward Console</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center border-t border-slate-100 pt-4">
+              <Link href="/" className="text-xs text-slate-500 hover:text-slate-800 transition">
+                ← Return to Public City Map
+              </Link>
             </div>
           </div>
-          <button
-            onClick={() => switchPersona("WARD_OFFICER")}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition whitespace-nowrap cursor-pointer"
-          >
-            Switch to Ward Officer (Priya)
-          </button>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

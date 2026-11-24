@@ -20,7 +20,8 @@ interface AuthContextType {
   openAuthModal: () => void;
   closeAuthModal: () => void;
   refreshUser: () => Promise<void>;
-  switchPersona: (role: "CITIZEN" | "WARD_OFFICER" | "ADMIN") => Promise<void>;
+  switchPersona: (role: "CITIZEN" | "WARD_OFFICER" | "ADMIN", password?: string) => Promise<{ success: boolean; error?: string }>;
+  governanceLogin: (email: string, password: string, role?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -51,18 +52,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchCurrentUser();
   }, []);
 
-  const switchPersona = async (role: "CITIZEN" | "WARD_OFFICER" | "ADMIN") => {
+  const switchPersona = async (
+    role: "CITIZEN" | "WARD_OFFICER" | "ADMIN",
+    password?: string
+  ): Promise<{ success: boolean; error?: string }> => {
     setLoading(true);
     try {
       const res = await fetch("/api/auth/demo-switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, password }),
       });
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         setUser(data.user);
+        return { success: true };
       }
+      return { success: false, error: data.error };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const governanceLogin = async (
+    email: string,
+    password: string,
+    role?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/governance-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || "Authentication failed" };
+      }
+      setUser(data.user);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || "Network error" };
     } finally {
       setLoading(false);
     }
@@ -83,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         closeAuthModal: () => setIsAuthModalOpen(false),
         refreshUser: fetchCurrentUser,
         switchPersona,
+        governanceLogin,
         logout,
       }}
     >

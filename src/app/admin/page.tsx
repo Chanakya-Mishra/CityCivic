@@ -15,14 +15,39 @@ import {
   TrendingUp,
   UserCheck,
   FileSpreadsheet,
+  Lock,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function AdminAnalyticsPage() {
-  const { user, switchPersona } = useAuth();
+  const { user, governanceLogin } = useAuth();
   const [data, setData] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [contractors, setContractors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Municipal Admin Auth State
+  const [adminEmail, setAdminEmail] = useState("admin@citycivic.gov");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authenticating, setAuthenticating] = useState(false);
+
+  const handleAdminAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthenticating(true);
+    try {
+      const res = await governanceLogin(adminEmail, adminPassword, "ADMIN");
+      if (!res.success) {
+        setAuthError(res.error || "Authentication failed. Invalid administrator credentials.");
+      } else {
+        setAdminPassword("");
+      }
+    } finally {
+      setAuthenticating(false);
+    }
+  };
 
   useEffect(() => {
     async function loadStats() {
@@ -63,32 +88,103 @@ export default function AdminAnalyticsPage() {
     );
   }
 
+  if (user?.role !== "ADMIN") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 p-6 text-white text-center">
+            <div className="w-14 h-14 bg-blue-500/20 border border-blue-400/30 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
+              <Lock className="w-7 h-7 text-blue-300" />
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold uppercase tracking-wider text-blue-300 mb-2">
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Municipal Executive Authorization Required</span>
+            </div>
+            <h1 className="text-xl font-extrabold">City Operations & SLA Dashboard</h1>
+            <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+              This executive analytics suite is restricted to City Commissioners and Municipal Directors. Citizen accounts cannot access contractor discipline scorecards or internal SLA logs.
+            </p>
+          </div>
+
+          {/* Form */}
+          <div className="p-6 sm:p-8">
+            {authError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAdminAuth} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Executive Admin Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@citycivic.gov"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Commissioner Authorization Passphrase
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter commissioner password"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 flex items-center justify-between">
+                  <span>Authorized Admin Passphrase:</span>
+                  <code className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                    CityAdmin#2026!
+                  </code>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={authenticating}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {authenticating ? (
+                  <span>Verifying Credentials...</span>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Authenticate & Access Executive Dashboard</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center border-t border-slate-100 pt-4">
+              <Link href="/" className="text-xs text-slate-500 hover:text-slate-800 transition">
+                ← Return to Public City Map
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const overview = data?.overview || {};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Admin Switcher Banner */}
-      {user?.role !== "ADMIN" && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <UserCheck className="w-5 h-5 text-blue-600 shrink-0" />
-            <div>
-              <p className="text-xs font-bold text-blue-950">
-                Viewing as {user?.role || "GUEST"}
-              </p>
-              <p className="text-[11px] text-blue-700">
-                Switch to Municipal Commissioner Admin to access governance metrics and contractor audit scorecards.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => switchPersona("ADMIN")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition whitespace-nowrap cursor-pointer"
-          >
-            Switch to Commissioner Admin
-          </button>
-        </div>
-      )}
 
       {/* Header */}
       <div className="mb-8">

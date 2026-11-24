@@ -155,9 +155,78 @@ export async function createCivicIssue(input: CreateIssueInput) {
 
   const validCategoryCode = matchedCategory ? matchedCategory.code : "POTHOLE";
   const baseHazard = matchedCategory?.baseHazard || 5;
-  const isMaster = !input.linkedMasterId;
 
-  // 3. Create unique tracking code
+  // 3. 20-Meter Auto-Deduplication Engine:
+  // If any two issues are within 20 meters and have the same category (e.g., POTHOLE === POTHOLE),
+  // the subsequent issue AUTOMATICALLY becomes a recurring child of the root Master issue.
+  // We strictly do NOT track children of child issues (max depth = 1).
+  let resolvedMasterId: string | null = input.linkedMasterId || null;
+  let autoGroupDistance: number | null = null;
+  let rootMasterIssue: any = null;
+
+  if (resolvedMasterId) {
+    // If client supplied a master ID, guarantee it points to the root master (not a child of a child)
+    const target = await prisma.issue.findUnique({ where: { id: resolvedMasterId } });
+    if (target) {
+      if (target.isMaster) {
+        rootMasterIssue = target;
+        resolvedMasterId = target.id;
+      } else if (target.masterIssueId) {
+        const root = await prisma.issue.findUnique({ where: { id: target.masterIssueId } });
+        rootMasterIssue = root || target;
+        resolvedMasterId = rootMasterIssue.id;
+      }
+    }
+  } else {
+    // Automatic 20m spatial scan: look for active issues of the EXACT SAME category
+    const activeSameCategoryIssues = await prisma.issue.findMany({
+      where: {
+        categoryCode: validCategoryCode,
+        status: { in: ["OPEN", "TRIAGED", "IN_PROGRESS", "REOPENED_DISPUTED"] },
+      },
+      select: {
+        id: true,
+        isMaster: true,
+        masterIssueId: true,
+        trackingCode: true,
+        latitude: true,
+        longitude: true,
+        wardId: true,
+        status: true,
+      },
+    });
+
+    let closestDist = Infinity;
+    let closestCandidate: any = null;
+
+    for (const cand of activeSameCategoryIssues) {
+      const dist = calculateDistanceMeters(input.latitude, input.longitude, cand.latitude, cand.longitude);
+      if (dist <= 20 && dist < closestDist) {
+        closestDist = dist;
+        closestCandidate = cand;
+      }
+    }
+
+    if (closestCandidate) {
+      autoGroupDistance = closestDist;
+      // Guarantee root master resolution: never create child-of-a-child
+      if (closestCandidate.isMaster) {
+        resolvedMasterId = closestCandidate.id;
+        rootMasterIssue = closestCandidate;
+      } else if (closestCandidate.masterIssueId) {
+        const root = await prisma.issue.findUnique({ where: { id: closestCandidate.masterIssueId } });
+        rootMasterIssue = root || closestCandidate;
+        resolvedMasterId = rootMasterIssue.id;
+      } else {
+        resolvedMasterId = closestCandidate.id;
+        rootMasterIssue = closestCandidate;
+      }
+    }
+  }
+
+  const isMaster = !resolvedMasterId;
+
+  // 4. Create unique tracking code
   let trackingCode = generateTrackingCode();
   let existing = await prisma.issue.findUnique({ where: { trackingCode } });
   while (existing) {
@@ -165,7 +234,7 @@ export async function createCivicIssue(input: CreateIssueInput) {
     existing = await prisma.issue.findUnique({ where: { trackingCode } });
   }
 
-  // 4. Create Issue in DB
+  // 5. Create Issue in DB
   const issue = await prisma.issue.create({
     data: {
       trackingCode,
@@ -178,8 +247,8 @@ export async function createCivicIssue(input: CreateIssueInput) {
       address: input.address,
       photoUrl: input.photoUrl,
       isMaster,
-      masterIssueId: input.linkedMasterId || null,
-      wardId: matchingWard?.id || null,
+      masterIssueId: resolvedMasterId,
+      wardId: rootMasterIssue?.wardId || matchingWard?.id || null,
       reportedById: input.reportedById,
       dynamicSeverity: baseHazard,
       severityLevel: baseHazard >= 8 ? "CRITICAL" : baseHazard >= 6 ? "HIGH" : baseHazard >= 4 ? "MEDIUM" : "LOW",
@@ -211,32 +280,40 @@ export async function createCivicIssue(input: CreateIssueInput) {
       actorRole: "CITIZEN",
       details: isMaster
         ? `New incident reported at (${input.latitude.toFixed(5)}, ${input.longitude.toFixed(5)}) in ${matchingWard?.name || "Unassigned"}`
-        : `Grouped under master issue ${input.linkedMasterId}`,
+        : autoGroupDistance !== null
+        ? `Auto-grouped within 20m (${autoGroupDistance}m) under Master Issue ${rootMasterIssue?.trackingCode || resolvedMasterId}`
+        : `Grouped under master issue ${resolvedMasterId}`,
     },
   });
 
   // If this is a child ticket, increment master ticket upvote count and recalculate
-  if (input.linkedMasterId) {
+  if (resolvedMasterId) {
     await prisma.issue.update({
-      where: { id: input.linkedMasterId },
+      where: { id: resolvedMasterId },
       data: {
         upvoteCount: { increment: 1 },
+        dynamicSeverity: { increment: 1 },
       },
     });
 
     await prisma.auditLog.create({
       data: {
-        issueId: input.linkedMasterId,
-        action: "CHILD_REPORT_ATTACHED",
+        issueId: resolvedMasterId,
+        action: autoGroupDistance !== null ? "RECURRING_CHILD_AUTO_GROUPED" : "CHILD_REPORT_ATTACHED",
         actorId: input.reportedById,
         actorRole: "CITIZEN",
-        details: `Corroborating child complaint ${trackingCode} attached by citizen.`,
+        details: autoGroupDistance !== null
+          ? `Auto-detected recurring complaint within 20m (${autoGroupDistance}m, category: ${validCategoryCode}). Child ticket ${trackingCode} automatically grouped under Master Ticket.`
+          : `Corroborating child complaint ${trackingCode} attached by citizen.`,
       },
     });
   }
 
   // Purge server-side cache for map markers, analytics, and issue listings
   await serverCache.expireTags(["issues", "analytics", "map", "wards", "audit"]);
+
+  (issue as any).autoGroupDistance = autoGroupDistance;
+  (issue as any).rootMasterTrackingCode = rootMasterIssue?.trackingCode;
 
   return issue;
 }

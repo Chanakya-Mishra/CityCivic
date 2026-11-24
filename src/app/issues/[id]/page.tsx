@@ -225,6 +225,32 @@ export default function IssueDetailPage({
         </Link>
       </div>
 
+      {/* RECURRING CHILD TICKET NOTICE */}
+      {!issue.isMaster && issue.masterIssue && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-500 text-white rounded-xl">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                Recurring Child Report • 20m Spatial Cluster
+              </h3>
+              <p className="text-xs text-amber-800 mt-0.5">
+                This complaint was detected within 20m of Master Incident{" "}
+                <strong>{issue.masterIssue.trackingCode}</strong> and grouped under it to avoid duplicating ward work orders.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/issues/${issue.masterIssue.id}`}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition shrink-0 whitespace-nowrap"
+          >
+            View Master Ticket →
+          </Link>
+        </div>
+      )}
+
       {/* PROVISIONAL RESOLUTION AUDIT NOTICE */}
       {isProvisional && (
         <div className="mb-6 p-4 bg-cyan-50 border-2 border-cyan-400 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

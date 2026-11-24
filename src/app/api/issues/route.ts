@@ -109,12 +109,23 @@ export async function POST(req: Request) {
       linkedMasterId: linkedMasterId || null,
     });
 
+    const isAutoGrouped = (issue as any).autoGroupDistance !== null && (issue as any).autoGroupDistance !== undefined;
+    const autoDistance = (issue as any).autoGroupDistance;
+    const masterCode = (issue as any).rootMasterTrackingCode;
+
+    let message = `Master incident ${issue.trackingCode} logged successfully.`;
+    if (isAutoGrouped) {
+      message = `Recurring issue detected within 20m (${autoDistance}m away, same category). Automatically grouped as a child complaint under Master Incident ${masterCode || issue.masterIssueId}.`;
+    } else if (!issue.isMaster) {
+      message = `Corroborating report ${issue.trackingCode} linked to master incident ${issue.masterIssueId}.`;
+    }
+
     return NextResponse.json({
       success: true,
       issue,
-      message: issue.isMaster
-        ? `Master incident ${issue.trackingCode} logged successfully.`
-        : `Corroborating report ${issue.trackingCode} linked to master incident.`,
+      isAutoGrouped,
+      autoDistance,
+      message,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
