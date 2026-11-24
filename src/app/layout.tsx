@@ -40,26 +40,28 @@ export default function RootLayout({
           <AuthModal />
           <RoleSwitchModal />
           <main className="flex-1">{children}</main>
-          <footer className="bg-white border-t border-slate-200 py-6 text-xs text-slate-500">
+          <footer className="bg-[#0e2743] border-t border-[#1a385c] py-6 text-xs text-slate-300">
             <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <img
-                  src="/logo-icon.png"
-                  alt="CityCivic Icon"
-                  className="w-6 h-6 object-contain"
-                  loading="lazy"
-                  decoding="async"
-                />
+                <div className="w-8 h-8 rounded-xl bg-white/10 p-1.5 flex items-center justify-center shrink-0 border border-white/15 backdrop-blur-sm">
+                  <img
+                    src="/logo-icon.png"
+                    alt="CityCivic Icon"
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
                 <div>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-bold text-white tracking-tight">
                     CityCivic Open Civic Platform
                   </p>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-teal-300/90 font-medium">
                     Resolving Urban Issues Together • Spatial Deduplication & Public Audit
                   </p>
                 </div>
               </div>
-              <p className="text-slate-400 text-center sm:text-right">
+              <p className="text-slate-400 text-center sm:text-right text-[11px]">
                 Affecting Urban Residents, Ward Field Officers & Local Municipal Corporations
               </p>
             </div>
