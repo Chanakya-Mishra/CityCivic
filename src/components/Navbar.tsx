@@ -34,17 +34,25 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 group-hover:scale-105 transition">
-              <MapPin className="w-5 h-5" />
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="relative flex items-center justify-center group-hover:scale-105 transition duration-200">
+              <img
+                src="/logo-icon.png"
+                alt="CityCivic"
+                className="w-10 h-10 object-contain drop-shadow-sm"
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-slate-900 text-lg tracking-tight">CityCivic</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-800 rounded-md">LIVE</span>
+                <span className="font-extrabold text-[#0f2b48] text-lg tracking-tight">
+                  city<span className="text-teal-600">civic</span>
+                </span>
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded-md tracking-wider">
+                  LIVE GIS
+                </span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium -mt-1 hidden sm:block">
-                Geotagged • Deduplicated • Publicly Verified
+              <p className="text-[9.5px] uppercase tracking-wider text-slate-400 font-bold -mt-0.5 hidden sm:block">
+                Resolving Urban Issues Together
               </p>
             </div>
           </Link>

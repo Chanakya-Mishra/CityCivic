@@ -17,6 +17,12 @@ import {
   ArrowRight,
   ShieldCheck,
   Search,
+  Sparkles,
+  Droplets,
+  Lightbulb,
+  Construction,
+  Trash2,
+  CheckCircle,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -127,99 +133,268 @@ export default function HomePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-6 relative overflow-hidden">
+      {/* Brand Hero Banner */}
+      <div className="bg-gradient-to-br from-[#0c1f38] via-[#0f2b48] to-[#063e3d] rounded-2xl p-6 sm:p-8 text-white shadow-xl mb-6 relative overflow-hidden border border-teal-900/40">
+        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute right-12 top-6 opacity-10 hidden md:block pointer-events-none">
+          <img src="/logo-icon.png" alt="Watermark" className="w-56 h-56 object-contain" />
+        </div>
+
         <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold text-emerald-300 mb-3">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Community-Verified Civic Accountability</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold text-teal-300 mb-3 border border-white/10">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Community-Verified Civic Action</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Report, Verify & Track City Infrastructure in Real-Time
-          </h1>
-          <p className="mt-2 text-slate-300 text-sm sm:text-base leading-relaxed">
+
+          <div className="flex items-center gap-3 mb-2">
+            <img
+              src="/logo-icon.png"
+              alt="CityCivic"
+              className="w-10 h-10 object-contain drop-shadow-md sm:w-12 sm:h-12"
+            />
+            <div>
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+                city<span className="text-teal-400">civic</span>
+              </h1>
+              <p className="text-[11px] sm:text-xs tracking-widest uppercase font-bold text-teal-200/90 -mt-0.5">
+                Resolving Urban Issues Together
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-2 text-slate-200 text-sm sm:text-base leading-relaxed">
             Eliminating duplicate complaints through spatial clustering, prioritizing genuine hazards through community voting, and enforcing verified photographic proof before any ticket is closed.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               href="/report"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold rounded-xl text-sm transition shadow-lg shadow-emerald-500/20"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold rounded-xl text-sm transition shadow-lg shadow-teal-500/25"
             >
               <Plus className="w-4 h-4" />
-              Report New Civic Issue
+              Report Civic Issue
             </Link>
             <Link
               href="/officer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl text-sm transition backdrop-blur-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl text-sm transition backdrop-blur-sm border border-white/10"
             >
               Ward Officer Work Orders
+            </Link>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white font-medium rounded-xl text-sm transition backdrop-blur-sm"
+            >
+              City Analytics
             </Link>
           </div>
         </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          {/* Search box */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              placeholder="Search by tracking code, pothole, road..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
+      {/* 4 Architectural Civic Pillars */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:border-teal-400 transition">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center text-teal-700">
+              <Layers className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-900">50m Spatial Cluster</span>
           </div>
-
-          {/* Ward Selector */}
-          <select
-            value={selectedWard}
-            onChange={(e) => setSelectedWard(e.target.value)}
-            className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="ALL">All Municipal Wards</option>
-            {wards.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.code}: {w.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Category Selector */}
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="ALL">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Status Selector */}
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="OPEN">Open</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="PROVISIONALLY_RESOLVED">Provisionally Resolved</option>
-            <option value="REOPENED_DISPUTED">Disputed (Reopened)</option>
-            <option value="OFFICIALLY_RESOLVED">Officially Resolved</option>
-          </select>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Auto-merges nearby duplicate citizen reports into a single Master Ticket to stop inbox flooding.
+          </p>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-          <Layers className="w-4 h-4 text-emerald-600" />
-          <span>Showing {filteredMarkers.length} incidents</span>
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:border-teal-400 transition">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-700">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-900">Hardware GPS Lock</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Locked satellite coordinates & EXIF validation to eliminate fake or spoofed complaints.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:border-teal-400 transition">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg bg-cyan-50 flex items-center justify-center text-cyan-700">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-900">Gemini Vision Gate</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Automated AI visual inspection confirms real civic damage before accepting tickets.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs hover:border-teal-400 transition">
+          <div className="flex items-center gap-2 mb-1.5">
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-700">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-bold text-slate-900">72h Public Dispute</span>
+          </div>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            Requires photographic fix proof before closing tickets, with citizen dispute protection.
+          </p>
+        </div>
+      </div>
+
+      {/* Filter Toolbar & Quick-Filter Chips */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-6 space-y-3">
+        {/* Quick Filter Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
+          <span className="text-slate-400 font-semibold text-[11px] uppercase tracking-wider shrink-0 mr-1">
+            Quick Filter:
+          </span>
+          <button
+            onClick={() => {
+              setSelectedCategory("ALL");
+              setSelectedStatus("ALL");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 transition ${
+              selectedCategory === "ALL" && selectedStatus === "ALL"
+                ? "bg-slate-900 text-white shadow-xs"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            All Incidents
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCategory("POTHOLE");
+              setSelectedStatus("ALL");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 flex items-center gap-1.5 transition ${
+              selectedCategory === "POTHOLE"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+            }`}
+          >
+            <Construction className="w-3.5 h-3.5" />
+            <span>Potholes & Roads</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCategory("STREETLIGHT");
+              setSelectedStatus("ALL");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 flex items-center gap-1.5 transition ${
+              selectedCategory === "STREETLIGHT"
+                ? "bg-yellow-600 text-white shadow-xs"
+                : "bg-yellow-50 text-yellow-800 hover:bg-yellow-100"
+            }`}
+          >
+            <Lightbulb className="w-3.5 h-3.5" />
+            <span>Streetlights</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCategory("WATER_LEAK");
+              setSelectedStatus("ALL");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 flex items-center gap-1.5 transition ${
+              selectedCategory === "WATER_LEAK"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-blue-50 text-blue-800 hover:bg-blue-100"
+            }`}
+          >
+            <Droplets className="w-3.5 h-3.5" />
+            <span>Water & Sewage</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCategory("GARBAGE");
+              setSelectedStatus("ALL");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 flex items-center gap-1.5 transition ${
+              selectedCategory === "GARBAGE"
+                ? "bg-emerald-700 text-white shadow-xs"
+                : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+            }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Sanitation</span>
+          </button>
+          <button
+            onClick={() => {
+              setSelectedCategory("ALL");
+              setSelectedStatus("OFFICIALLY_RESOLVED");
+            }}
+            className={`px-3 py-1.5 rounded-xl font-medium shrink-0 flex items-center gap-1.5 transition ${
+              selectedStatus === "OFFICIALLY_RESOLVED"
+                ? "bg-teal-700 text-white shadow-xs"
+                : "bg-teal-50 text-teal-800 hover:bg-teal-100"
+            }`}
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span>Verified Fixed</span>
+          </button>
+        </div>
+
+        {/* Detailed Dropdowns & Search */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+            {/* Search box */}
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                type="text"
+                placeholder="Search by tracking code, pothole, road..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+
+            {/* Ward Selector */}
+            <select
+              value={selectedWard}
+              onChange={(e) => setSelectedWard(e.target.value)}
+              className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="ALL">All Municipal Wards</option>
+              {wards.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.code}: {w.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Category Selector */}
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="ALL">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Status Selector */}
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="OPEN">Open</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="PROVISIONALLY_RESOLVED">Provisionally Resolved</option>
+              <option value="REOPENED_DISPUTED">Disputed (Reopened)</option>
+              <option value="OFFICIALLY_RESOLVED">Officially Resolved</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <Layers className="w-4 h-4 text-teal-600" />
+            <span>Showing {filteredMarkers.length} incidents</span>
+          </div>
         </div>
       </div>
 

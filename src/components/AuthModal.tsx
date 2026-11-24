@@ -85,12 +85,16 @@ export function AuthModal() {
             <X className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 backdrop-blur-md rounded-xl">
-              <ShieldCheck className="w-6 h-6 text-emerald-200" />
+            <div className="w-11 h-11 bg-white/10 backdrop-blur-md rounded-xl p-1.5 flex items-center justify-center shrink-0 border border-white/20">
+              <img
+                src="/logo-icon.png"
+                alt="CityCivic"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <h3 className="text-xl font-bold">Citizen Security Verification</h3>
-              <p className="text-emerald-100 text-xs">Zero spam • Real accountability</p>
+              <p className="text-emerald-100 text-xs">CityCivic • Resolving Urban Issues Together</p>
             </div>
           </div>
         </div>
