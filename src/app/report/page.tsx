@@ -23,7 +23,7 @@ export default function ReportIssuePage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryCode, setCategoryCode] = useState("");
+  const [categoryCode, setCategoryCode] = useState("POTHOLE");
   const [latitude, setLatitude] = useState<number | null>(12.9784); // Default Indiranagar coordinates
   const [longitude, setLongitude] = useState<number | null>(77.6408);
   const [address, setAddress] = useState("100ft Road, Indiranagar, Bengaluru");
@@ -56,7 +56,13 @@ export default function ReportIssuePage() {
         const data = await res.json();
         setAiTriageResult(data);
         if (data.predictedCategory) {
-          setCategoryCode(data.predictedCategory);
+          const upper = String(data.predictedCategory).toUpperCase();
+          const found = categories.find((c) => c.code.toUpperCase() === upper);
+          if (found) {
+            setCategoryCode(found.code);
+          } else {
+            setCategoryCode("POTHOLE");
+          }
         }
         if (data.hazardAnalysis && !description) {
           setDescription(data.hazardAnalysis);

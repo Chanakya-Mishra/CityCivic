@@ -114,12 +114,46 @@ export async function createCivicIssue(input: CreateIssueInput) {
   const wards = await prisma.ward.findMany();
   const matchingWard = findMatchingWard(input.latitude, input.longitude, wards);
 
-  // 2. Fetch category to read base hazard
-  const category = await prisma.category.findUnique({
-    where: { code: input.categoryCode },
-  });
+  // 2. Resolve and normalize Category against DB records to guarantee Foreign Key integrity
+  let allCategories = await prisma.category.findMany();
+  if (allCategories.length === 0) {
+    await prisma.category.createMany({
+      data: [
+        { code: "POTHOLE", name: "Pothole & Road Damage", department: "Roads & Infrastructure", baseHazard: 7 },
+        { code: "MANHOLE", name: "Open / Broken Manhole", department: "Sanitation & Drainage", baseHazard: 9 },
+        { code: "WATER_LEAK", name: "Water Main Burst / Leak", department: "Water Supply & Sewerage", baseHazard: 6 },
+        { code: "GARBAGE", name: "Illegal Waste / Garbage Dump", department: "Solid Waste Management", baseHazard: 4 },
+        { code: "STREETLIGHT", name: "Streetlight Outage / Dark Spot", department: "Electrical Works", baseHazard: 5 },
+        { code: "SEWAGE", name: "Sewage Overflow / Contamination", department: "Sanitation & Drainage", baseHazard: 8 },
+      ],
+      skipDuplicates: true,
+    });
+    allCategories = await prisma.category.findMany();
+  }
 
-  const baseHazard = category?.baseHazard || 5;
+  const rawCode = (input.categoryCode || "").trim().toUpperCase();
+  let matchedCategory = allCategories.find((c) => c.code.toUpperCase() === rawCode);
+
+  if (!matchedCategory) {
+    if (rawCode.includes("ROAD") || rawCode.includes("HOLE") || rawCode.includes("ASPHALT") || rawCode.includes("PAVEMENT")) {
+      matchedCategory = allCategories.find((c) => c.code === "POTHOLE");
+    } else if (rawCode.includes("GARBAGE") || rawCode.includes("WASTE") || rawCode.includes("TRASH")) {
+      matchedCategory = allCategories.find((c) => c.code === "GARBAGE");
+    } else if (rawCode.includes("MANHOLE") || rawCode.includes("DRAIN") || rawCode.includes("PIT")) {
+      matchedCategory = allCategories.find((c) => c.code === "MANHOLE");
+    } else if (rawCode.includes("LIGHT") || rawCode.includes("LAMP") || rawCode.includes("DARK")) {
+      matchedCategory = allCategories.find((c) => c.code === "STREETLIGHT");
+    } else if (rawCode.includes("WATER") || rawCode.includes("PIPE") || rawCode.includes("LEAK")) {
+      matchedCategory = allCategories.find((c) => c.code === "WATER_LEAK");
+    } else if (rawCode.includes("SEWAGE") || rawCode.includes("SEWER")) {
+      matchedCategory = allCategories.find((c) => c.code === "SEWAGE");
+    } else {
+      matchedCategory = allCategories[0];
+    }
+  }
+
+  const validCategoryCode = matchedCategory ? matchedCategory.code : "POTHOLE";
+  const baseHazard = matchedCategory?.baseHazard || 5;
   const isMaster = !input.linkedMasterId;
 
   // 3. Create unique tracking code
@@ -136,7 +170,7 @@ export async function createCivicIssue(input: CreateIssueInput) {
       trackingCode,
       title: input.title,
       description: input.description,
-      categoryCode: input.categoryCode,
+      categoryCode: validCategoryCode,
       status: "OPEN",
       latitude: input.latitude,
       longitude: input.longitude,

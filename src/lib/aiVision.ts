@@ -111,6 +111,24 @@ Return pure JSON with keys:
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
           const parsed = JSON.parse(text);
+          if (parsed.predictedCategory) {
+            const up = String(parsed.predictedCategory).toUpperCase();
+            if (up.includes("ROAD") || up.includes("POTHOLE") || up.includes("ASPHALT") || up.includes("PAVEMENT")) {
+              parsed.predictedCategory = "POTHOLE";
+            } else if (up.includes("MANHOLE") || up.includes("DRAIN") || up.includes("PIT")) {
+              parsed.predictedCategory = "MANHOLE";
+            } else if (up.includes("WATER") || up.includes("PIPE") || up.includes("LEAK")) {
+              parsed.predictedCategory = "WATER_LEAK";
+            } else if (up.includes("GARBAGE") || up.includes("WASTE") || up.includes("TRASH")) {
+              parsed.predictedCategory = "GARBAGE";
+            } else if (up.includes("LIGHT") || up.includes("LAMP") || up.includes("DARK")) {
+              parsed.predictedCategory = "STREETLIGHT";
+            } else if (up.includes("SEWAGE") || up.includes("SEWER")) {
+              parsed.predictedCategory = "SEWAGE";
+            } else {
+              parsed.predictedCategory = "POTHOLE";
+            }
+          }
           return parsed;
         }
       }

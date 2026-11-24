@@ -1,49 +1,35 @@
 import prisma from "./prisma";
 
 export async function getCityAnalytics() {
-  const [
-    totalIssues,
-    masterIssues,
-    childIssues,
-    resolvedIssues,
-    provisionallyResolved,
-    disputedIssues,
-    totalUpvotes,
-    totalVerifications,
-    totalWards,
-    categories,
-    wards,
-  ] = await Promise.all([
-    prisma.issue.count(),
-    prisma.issue.count({ where: { isMaster: true } }),
-    prisma.issue.count({ where: { isMaster: false } }),
-    prisma.issue.count({ where: { status: "OFFICIALLY_RESOLVED" } }),
-    prisma.issue.count({ where: { status: "PROVISIONALLY_RESOLVED" } }),
-    prisma.issue.count({ where: { status: "REOPENED_DISPUTED" } }),
-    prisma.upvote.count(),
-    prisma.verification.count(),
-    prisma.ward.count(),
-    prisma.category.findMany({
-      include: {
-        _count: { select: { issues: true } },
-      },
-    }),
-    prisma.ward.findMany({
-      include: {
-        issues: {
-          select: {
-            id: true,
-            status: true,
-            isMaster: true,
-            dynamicSeverity: true,
-            createdAt: true,
-            officiallyResolvedAt: true,
-            disputeCount: true,
-          },
+  const totalIssues = await prisma.issue.count();
+  const masterIssues = await prisma.issue.count({ where: { isMaster: true } });
+  const childIssues = await prisma.issue.count({ where: { isMaster: false } });
+  const resolvedIssues = await prisma.issue.count({ where: { status: "OFFICIALLY_RESOLVED" } });
+  const provisionallyResolved = await prisma.issue.count({ where: { status: "PROVISIONALLY_RESOLVED" } });
+  const disputedIssues = await prisma.issue.count({ where: { status: "REOPENED_DISPUTED" } });
+  const totalUpvotes = await prisma.upvote.count();
+  const totalVerifications = await prisma.verification.count();
+  const totalWards = await prisma.ward.count();
+  const categories = await prisma.category.findMany({
+    include: {
+      _count: { select: { issues: true } },
+    },
+  });
+  const wards = await prisma.ward.findMany({
+    include: {
+      issues: {
+        select: {
+          id: true,
+          status: true,
+          isMaster: true,
+          dynamicSeverity: true,
+          createdAt: true,
+          officiallyResolvedAt: true,
+          disputeCount: true,
         },
       },
-    }),
-  ]);
+    },
+  });
 
   // Deduplication rate: percentage of complaints grouped into master tickets
   const deduplicationRate =
