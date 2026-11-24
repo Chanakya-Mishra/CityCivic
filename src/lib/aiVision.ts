@@ -19,7 +19,7 @@ export interface RepairVerificationResult {
   anomaliesDetected: string[];
 }
 
-function getGeminiImagePart(photoUrl: string): any {
+async function getGeminiImagePart(photoUrl: string): Promise<any> {
   // If it's a local uploaded file (e.g., /uploads/12345.jpg)
   if (photoUrl.startsWith("/uploads/")) {
     const localPath = path.join(process.cwd(), "public", photoUrl);
@@ -33,6 +33,25 @@ function getGeminiImagePart(photoUrl: string): any {
           data: buffer.toString("base64"),
         },
       };
+    }
+  }
+
+  // If it's a remote URL (e.g. Unsplash or Cloud Storage)
+  if (photoUrl.startsWith("http://") || photoUrl.startsWith("https://")) {
+    try {
+      const res = await fetch(photoUrl, { signal: AbortSignal.timeout(6000) });
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        const contentType = res.headers.get("content-type") || "image/jpeg";
+        return {
+          inline_data: {
+            mime_type: contentType.split(";")[0],
+            data: Buffer.from(buffer).toString("base64"),
+          },
+        };
+      }
+    } catch (err) {
+      console.warn("Failed to fetch remote image for Gemini, using URL text fallback:", err);
     }
   }
 
@@ -51,17 +70,26 @@ export async function inspectComplaintImage(
 
   if (apiKey) {
     try {
-      const prompt = `Analyze this civic complaint photo. Determine:
-1. Is this a genuine outdoor urban civic issue (pothole, garbage dump, manhole, water leak, broken streetlight, sewage)?
-2. The exact category.
+      const prompt = `You are CityCivic AI, an automated municipal inspector.
+Analyze this civic complaint photo. Determine:
+1. Is this a genuine outdoor urban civic issue (pothole, garbage dump, manhole, water leak, broken streetlight, sewage, road damage)?
+2. The exact category (e.g. POTHOLE, GARBAGE, MANHOLE, STREETLIGHT, WATER_LEAK).
 3. Estimated hazard score from 1 (minor nuisance) to 10 (life-threatening hazard).
 4. Detailed hazard explanation.
-Return pure JSON with keys: isCivicIssue (boolean), predictedCategory (string), confidence (float 0-1), estimatedHazard (int 1-10), hazardAnalysis (string), recommendedTags (array of strings).`;
+Return pure JSON with keys:
+{
+  "isCivicIssue": boolean,
+  "predictedCategory": string,
+  "confidence": float (0.0 to 1.0),
+  "estimatedHazard": integer (1 to 10),
+  "hazardAnalysis": string,
+  "recommendedTags": string[]
+}`;
 
-      const imagePart = getGeminiImagePart(photoUrl);
+      const imagePart = await getGeminiImagePart(photoUrl);
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -71,6 +99,9 @@ Return pure JSON with keys: isCivicIssue (boolean), predictedCategory (string), 
                 parts: [{ text: prompt }, imagePart],
               },
             ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
           }),
         }
       );
@@ -79,8 +110,7 @@ Return pure JSON with keys: isCivicIssue (boolean), predictedCategory (string), 
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-          const parsed = JSON.parse(cleaned);
+          const parsed = JSON.parse(text);
           return parsed;
         }
       }
@@ -137,18 +167,43 @@ export async function verifyRepairImages(
   afterPhotoUrl: string,
   categoryCode: string
 ): Promise<RepairVerificationResult> {
+  // Catch identical before/after images immediately (fraud prevention)
+  if (beforePhotoUrl && afterPhotoUrl && beforePhotoUrl === afterPhotoUrl) {
+    return {
+      isRepaired: false,
+      repairConfidence: 0.99,
+      visualAuditNotes: "Fraud Alert: Identical photo uploaded as resolution proof. Zero physical repair detected.",
+      qualityScore: 1,
+      anomaliesDetected: ["Identical Image Hash", "Zero Physical Change"],
+    };
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (apiKey) {
     try {
-      const prompt = `Compare these two photos:
+      const prompt = `You are an AI Civic Quality Inspector for municipal works.
+Compare these two photos:
 Photo 1: Initial civic complaint (${categoryCode}).
-Photo 2: Resolution proof uploaded by municipal field team.
-Evaluate whether the issue shown in Photo 1 is genuinely resolved in Photo 2.
-Return pure JSON with keys: isRepaired (boolean), repairConfidence (float 0-1), visualAuditNotes (string), qualityScore (int 1-10), anomaliesDetected (array of strings).`;
+Photo 2: Municipal repair proof submitted by the municipal field crew.
+
+Evaluation guidelines:
+1. If Photo 2 shows an active, unresolved hazard or completely unrelated/irrelevant imagery (like animals, people portraits, indoor rooms, or snow mountains when road was reported), set isRepaired = false.
+2. If Photo 2 shows clean, repaired, patched, or paved infrastructure corresponding to the civic problem, set isRepaired = true.
+3. Return pure JSON with keys:
+{
+  "isRepaired": boolean,
+  "repairConfidence": float (0.0 to 1.0),
+  "visualAuditNotes": string,
+  "qualityScore": integer (1 to 10),
+  "anomaliesDetected": string[]
+}`;
+
+      const beforePart = await getGeminiImagePart(beforePhotoUrl);
+      const afterPart = await getGeminiImagePart(afterPhotoUrl);
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -157,13 +212,16 @@ Return pure JSON with keys: isRepaired (boolean), repairConfidence (float 0-1), 
               {
                 parts: [
                   { text: prompt },
-                  { text: "Before Photo (Original Complaint):" },
-                  getGeminiImagePart(beforePhotoUrl),
-                  { text: "After Photo (Officer Resolution Proof):" },
-                  getGeminiImagePart(afterPhotoUrl),
+                  { text: "Photo 1 (Complaint):" },
+                  beforePart,
+                  { text: "Photo 2 (Repair Proof):" },
+                  afterPart,
                 ],
               },
             ],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
           }),
         }
       );
@@ -172,8 +230,7 @@ Return pure JSON with keys: isRepaired (boolean), repairConfidence (float 0-1), 
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-          return JSON.parse(cleaned);
+          return JSON.parse(text);
         }
       }
     } catch (err) {
@@ -181,17 +238,7 @@ Return pure JSON with keys: isRepaired (boolean), repairConfidence (float 0-1), 
     }
   }
 
-  // Check obvious sham resolution (e.g. exact same photo passed for before and after)
-  if (beforePhotoUrl === afterPhotoUrl) {
-    return {
-      isRepaired: false,
-      repairConfidence: 0.1,
-      visualAuditNotes: "Fraud Alert: The resolution photo is identical to the original complaint photo.",
-      qualityScore: 1,
-      anomaliesDetected: ["Identical Image Hash", "Zero Physical Change"],
-    };
-  }
-
+  // Offline Heuristic Engine
   return {
     isRepaired: true,
     repairConfidence: 0.92,
