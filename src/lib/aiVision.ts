@@ -20,6 +20,23 @@ export interface RepairVerificationResult {
 }
 
 async function getGeminiImagePart(photoUrl: string): Promise<any> {
+  // If it's a data URI (e.g. data:image/jpeg;base64,...)
+  if (photoUrl.startsWith("data:")) {
+    const commaIndex = photoUrl.indexOf(",");
+    if (commaIndex !== -1) {
+      const meta = photoUrl.substring(0, commaIndex);
+      const base64Data = photoUrl.substring(commaIndex + 1);
+      const mimeMatch = meta.match(/^data:([^;]+)/);
+      const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
+      return {
+        inline_data: {
+          mime_type: mimeType,
+          data: base64Data,
+        },
+      };
+    }
+  }
+
   // If it's a local uploaded file (e.g., /uploads/12345.jpg)
   if (photoUrl.startsWith("/uploads/")) {
     const localPath = path.join(process.cwd(), "public", photoUrl);

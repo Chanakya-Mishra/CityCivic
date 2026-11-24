@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
+import sharp from "sharp";
 import { extractExifData } from "@/lib/exif";
 
 export async function POST(req: Request) {
@@ -23,34 +21,44 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const rawBuffer = Buffer.from(arrayBuffer);
 
-    // 1. Extract EXIF metadata
-    const exif = await extractExifData(buffer);
+    // 1. Extract EXIF metadata from raw uncompressed binary before processing
+    const exif = await extractExifData(rawBuffer);
 
-    // 2. Ensure public/uploads exists
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    // 2. In-memory resize & compression with sharp (Vercel Serverless safe - no filesystem disk writes)
+    let optimizedBuffer: Buffer;
+    let mimeType = "image/jpeg";
+
+    try {
+      optimizedBuffer = await sharp(rawBuffer)
+        .rotate() // Auto-orient using EXIF orientation tag
+        .resize({
+          width: 1280,
+          height: 1280,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 80, progressive: true })
+        .toBuffer();
+    } catch (sharpErr) {
+      console.warn("Sharp optimization fallback to raw buffer:", sharpErr);
+      optimizedBuffer = rawBuffer;
+      mimeType = file.type || "image/jpeg";
     }
 
-    // 3. Generate unique filename
-    const ext = path.extname(file.name) || ".jpg";
-    const filename = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
-    const filePath = path.join(uploadsDir, filename);
-
-    fs.writeFileSync(filePath, buffer);
-
-    const publicUrl = `/uploads/${filename}`;
+    // 3. Encode to Base64 Data URI
+    const dataUri = `data:${mimeType};base64,${optimizedBuffer.toString("base64")}`;
 
     return NextResponse.json({
       success: true,
-      url: publicUrl,
-      sizeBytes: buffer.length,
-      mimeType: file.type,
+      url: dataUri,
+      sizeBytes: optimizedBuffer.length,
+      mimeType,
       exif,
     });
   } catch (error: any) {
+    console.error("Upload error:", error);
     return NextResponse.json({ error: error.message || "Upload failed." }, { status: 500 });
   }
 }

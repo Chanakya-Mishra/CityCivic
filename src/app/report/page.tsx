@@ -16,6 +16,7 @@ import {
   XCircle,
   UploadCloud,
   Check,
+  Lock,
 } from "lucide-react";
 
 export default function ReportIssuePage() {
@@ -66,13 +67,12 @@ export default function ReportIssuePage() {
       .catch((err) => console.warn("Failed to load categories:", err));
   }, []);
 
-  // 2. Auto-Detect Device Location on Mount
+  // 2. Auto-Detect Device Location on Mount & on Refresh
   const detectDeviceLocation = () => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       setLatitude(12.9784);
       setLongitude(77.6408);
       setLocationSource("FALLBACK");
-      if (!address) setAddress("100ft Road, Indiranagar, Bengaluru");
       return;
     }
 
@@ -85,21 +85,17 @@ export default function ReportIssuePage() {
         setLongitude(lng);
         setGpsAccuracy(Math.round(pos.coords.accuracy));
         setLocationSource("DEVICE_GPS");
-        if (!address) {
-          setAddress(`GPS Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
-        }
         setFetchingGps(false);
       },
       (err) => {
         console.warn("Device GPS access denied or timed out:", err.message);
-        // Default to Indiranagar Ward 02 coordinates
-        setLatitude(12.9784);
-        setLongitude(77.6408);
-        setLocationSource("FALLBACK");
-        if (!address) setAddress("100ft Road, Indiranagar, Bengaluru");
+        // Default to Indiranagar Ward 02 coordinates if not already set
+        setLatitude((prev) => (prev !== null ? prev : 12.9784));
+        setLongitude((prev) => (prev !== null ? prev : 77.6408));
+        setLocationSource((prev) => (prev === "DETECTING" ? "FALLBACK" : prev));
         setFetchingGps(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
@@ -152,7 +148,7 @@ export default function ReportIssuePage() {
             const catObj = categories.find(
               (c) => c.code === (data.predictedCategory || currentCategory)
             );
-            setTitle(`${catObj?.name || "Civic Hazard"} at ${address || "location"}`);
+            setTitle(`${catObj?.name || "Civic Hazard"}${address ? ` - ${address}` : ""}`);
           }
         }
       }
@@ -190,16 +186,13 @@ export default function ReportIssuePage() {
       setUploadedPhotoUrl(data.url);
       setExifInfo(data.exif);
 
-      // If camera photo contains EXIF GPS, prioritize as ground truth
+      // If camera photo contains EXIF GPS, prioritize as ground truth coordinates
       if (data.exif?.hasGps && data.exif.latitude && data.exif.longitude) {
         const exifLat = parseFloat(data.exif.latitude.toFixed(6));
         const exifLng = parseFloat(data.exif.longitude.toFixed(6));
         setLatitude(exifLat);
         setLongitude(exifLng);
         setLocationSource("EXIF_CAMERA");
-        setAddress(
-          `Camera EXIF Ground Truth (${exifLat.toFixed(4)}, ${exifLng.toFixed(4)}) - ${data.exif.model || "Mobile Device"}`
-        );
       }
 
       // Automatically run AI Visual Triage immediately!
@@ -309,7 +302,7 @@ export default function ReportIssuePage() {
           categoryCode,
           latitude,
           longitude,
-          address: address || "Location identified by GPS",
+          address: address.trim() || (locationSource === "EXIF_CAMERA" ? "Camera EXIF Geotag" : "Live Device GPS Geotag"),
           photoUrl: uploadedPhotoUrl,
           linkedMasterId: linkedMasterId || null,
         }),
@@ -559,71 +552,74 @@ export default function ReportIssuePage() {
           )}
         </div>
 
-        {/* STEP 2: Auto-Calculated Geotag & Location */}
+        {/* STEP 2: Incident Geotag & Location */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              2. Incident Geotag & Location (Auto-Calculated)
+              2. Incident Geotag & Location
             </label>
             <button
               type="button"
               onClick={detectDeviceLocation}
               disabled={fetchingGps}
-              className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition"
+              className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${fetchingGps ? "animate-spin" : ""}`} />
               <span>{fetchingGps ? "Detecting GPS..." : "Refresh Device GPS"}</span>
             </button>
           </div>
 
-          {/* Auto Location Display Card */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+          {/* Locked Hardware Geotag Display Card */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-slate-900">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-extrabold text-slate-900 tracking-tight">
                       {latitude !== null && longitude !== null
                         ? `${latitude.toFixed(5)}° N, ${longitude.toFixed(5)}° E`
                         : "Detecting location..."}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
                         locationSource === "EXIF_CAMERA"
-                          ? "bg-purple-100 text-purple-800"
+                          ? "bg-purple-100 text-purple-800 border border-purple-200"
                           : locationSource === "DEVICE_GPS"
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                           : "bg-slate-200 text-slate-700"
                       }`}
                     >
-                      {locationSource === "EXIF_CAMERA"
-                        ? "Camera EXIF Ground Truth"
-                        : locationSource === "DEVICE_GPS"
-                        ? "Live Device GPS"
-                        : "Bengaluru Center"}
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>
+                        {locationSource === "EXIF_CAMERA"
+                          ? "Camera EXIF Locked"
+                          : locationSource === "DEVICE_GPS"
+                          ? "Live GPS Locked"
+                          : "Central Bengaluru"}
+                      </span>
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
                     {locationSource === "EXIF_CAMERA"
-                      ? `Extracted from photo camera metadata (${exifInfo?.model || "Device"})`
+                      ? `Extracted from photo camera metadata (${exifInfo?.model || "Device"}) • Unchangeable verified geotag`
                       : gpsAccuracy
-                      ? `Device satellite lock (Accuracy: ±${gpsAccuracy}m)`
-                      : "Default Ward 02 central coordinates"}
+                      ? `Satellite lock accurate within ±${gpsAccuracy}m • Unchangeable verified hardware geotag`
+                      : "Default municipal central coordinates"}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200">
+            <div className="pt-2.5 border-t border-slate-200">
               <label className="text-[11px] font-semibold text-slate-600 block mb-1">
                 Landmark or Nearby Building (Optional guidance for ward crew)
               </label>
               <input
                 type="text"
-                placeholder="e.g. Opposite BDA Complex, 100ft Road, Indiranagar"
+                placeholder="e.g. Opposite BDA Complex, near Metro Pillar 142"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
